@@ -1,0 +1,6 @@
+__pycache__/
+*.sqlite3
+
+memo.md
+config/secrets.txt
+config.py
