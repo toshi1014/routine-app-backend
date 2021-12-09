@@ -9,13 +9,14 @@ import config
 
 def generate_token(user):
     timestamp = int(time.time()) + 60*60*24*7       ## expire in 1 weeek
-    token = jwt.encode({
-        "id": user.pk,
-        "exp": timestamp,
-    },
-    config.SECRET_KEY,
-    algorithm="HS256"
-)
+    token = jwt.encode(
+        {
+            "id": user.pk,
+            "exp": timestamp,
+        },
+        config.SECRET_KEY,
+        algorithm="HS256"
+    )
 
     return token
 

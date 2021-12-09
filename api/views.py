@@ -1,7 +1,9 @@
 from django.shortcuts import render
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 from rest_framework.response import Response
 from rest_framework.decorators import api_view,authentication_classes, permission_classes
-from .utils.auth import Login, is_authenticated
+from .utils.auth import Login, is_authenticated, generate_token
 
 
 @api_view(["POST"])
@@ -15,6 +17,44 @@ def login(request):
     res = [{
         "status": status,
         "token": str(request.user),
+    }]
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def is_unique(request):
+    column, val = request.data["column"], request.data["val"]
+
+    # TODO: check whether unique
+    res = [{
+        "status": False,
+    }]
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def signup(request):
+    email, password, username = \
+        request.data["email"], request.data["password"], request.data["username"]
+
+    print("\tparams")
+    print("\n\t", email, password, username)
+
+    try:
+        user = User.objects.create_user(username=email, password=password)
+        user = authenticate(request, username=email, password=password)
+        token = generate_token(user)
+        status = True
+        print("created successfully")
+    except:
+        status = False
+        token = None
+
+    res = [{
+        "status": status,
+        "token": str(token),
     }]
 
     return Response(res)
