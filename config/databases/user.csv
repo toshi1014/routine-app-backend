@@ -1,0 +1,4 @@
+email, VARCHAR(32)
+username, VARCHAR(32)
+status_message, VARCHAR(140)
+===EOF=======================

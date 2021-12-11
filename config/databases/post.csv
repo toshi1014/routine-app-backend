@@ -1,0 +1,4 @@
+titile, VARCHAR(32)
+subtitle, VARCHAR(32)
+description, VARCHAR(140)
+===EOF=======================
