@@ -2,11 +2,9 @@
 
 set -e
 
-source config/secrets.txt
 source config/config.txt
+source config/secrets.txt
 
-
-yes $ROOT_PASSWORD | sudo -S service mysql start
 
 cd config/databases
 
@@ -32,4 +30,4 @@ CMD="
 
 echo -e $CMD
 
-echo -e $CMD | sudo mysql -u root -p$MYSQL_PASSWORD
+echo -e $CMD | mysql -u root -p$MYSQL_PASSWORD

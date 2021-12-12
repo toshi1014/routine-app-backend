@@ -48,9 +48,10 @@ def signup(request):
         user = authenticate(request, username=email, password=password)
         token = generate_token(user)
         status = True
-        MySQLHandler.insert("users", {"username": email})
+        MySQLHandler.insert("users", {"email": email})
         print("created successfully")
-    except:
+    except Exception as e:
+        print("\n\tErr:", e, "\n")
         status = False
         token = None
 

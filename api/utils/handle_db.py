@@ -2,17 +2,14 @@ import mysql.connector
 import config
 
 db = mysql.connector.connect(
-    # user=config.MYSQL_USER,
-    # password=config.MYSQL_PASSWORD,
-    # host=config.MYSQL_HOST,
-    user="root",
-    password="password",
-    host="localhost",
-    database="routine_app",
+    user=config.MYSQL_USER,
+    password=config.MYSQL_PASSWORD,
+    host=config.MYSQL_HOST,
+    port=config.MYSQL_PORT,
 )
-
+db.ping(reconnect=True)
 cursor = db.cursor(buffered=True)
-cursor.execute(f"USE {config.DB_NAME};")
+cursor.execute(f"USE {config.DB_NAME}")
 db.commit()
 
 
@@ -22,11 +19,15 @@ class MySQLHandler():
         key_list = ""
         val_list = ""
         for key in key_val_dict:
-            key_list += key + ", "
-            val_list += "'" + val + "', "
+            key_list += key + ","
+            val_list += "'" + key_val_dict[key] + "',"
+
+        key_list, val_list = key_list[:-1], val_list[:-1]     ## remove last ","
 
         cmd = f"INSERT INTO {table_name} ({key_list}) VALUES ({val_list});"
+        print("\n\t", cmd, "\n")
         cursor.execute(cmd)
+        db.commit()
 
     @classmethod
     def fetch(cls, table_name, key, val):

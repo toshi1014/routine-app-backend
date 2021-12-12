@@ -4,3 +4,4 @@ __pycache__/
 memo.md
 config/secrets.txt
 config.py
+.*_history
