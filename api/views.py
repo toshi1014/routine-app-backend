@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate
 from rest_framework.response import Response
 from rest_framework.decorators import api_view,authentication_classes, permission_classes
 from .utils.auth import Login, is_authenticated, generate_token
+from .utils.handle_db import MySQLHandler
 
 
 @api_view(["POST"])
@@ -47,6 +48,7 @@ def signup(request):
         user = authenticate(request, username=email, password=password)
         token = generate_token(user)
         status = True
+        MySQLHandler.insert("users", {"username": email})
         print("created successfully")
     except:
         status = False
