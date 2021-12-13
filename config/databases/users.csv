@@ -1,5 +1,8 @@
 id, INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
 email, VARCHAR(32)
 username, VARCHAR(32)
-status_message, VARCHAR(140) DEFAULT "Hello World"
+status_message, VARCHAR(140) DEFAULT "Howdy"
+hashtag_list, VARCHAR(140) DEFAULT "ShareYourRoutine,"
+followers_num, INT UNSIGNED DEFAULT 0
+following_num, INT UNSIGNED DEFAULT 0
 ===EOF=======================

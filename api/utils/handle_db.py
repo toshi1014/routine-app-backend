@@ -72,7 +72,13 @@ class MySQLHandler():
         db.commit()
 
     @classmethod
-    def update(cls, cmd):
+    def update(cls, table_name, key, val, dict_update_column_val):
+        str_column_val = ",".join([
+            f"{column} = '{dict_update_column_val[column]}',"
+                for column in dict_update_column_val
+        ])[:-1]     ## [:-1] remove last ","
+        cmd = f"UPDATE {table_name} SET {str_column_val} WHERE {key}='{val}';"
+        print("\n\t", cmd, "\t")
         cursor.execute(cmd)
         db.commit()
 

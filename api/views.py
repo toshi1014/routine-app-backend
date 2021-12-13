@@ -46,7 +46,8 @@ def signup(request):
     try:
         user = User.objects.create_user(username=email, password=password)
         user = authenticate(request, username=email, password=password)
-        token = generate_token(user.pk, email, username)
+        id = MySQLHandler.fetch("users", key="email", val=email)["id"]
+        token = generate_token(id, email, username)
         status = True
         MySQLHandler.insert("users", {"email": email, "username": username})
         print("created successfully")
@@ -72,20 +73,57 @@ def mypage_login(request):
         "token": dict_is_authenticated["new_token"],
     }]
 
-    if dict_is_authenticated["bool_authenticated"]:
-        row = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])
+    try:
+        if dict_is_authenticated["bool_authenticated"]:
+            row = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])
 
-        res[0].update({
-            "contents":{
-                "email": row["email"],
-                "username": row["username"],
-                "statusMessage": row["status_message"],
-            }
-        })
-    else:
-        res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+            res[0].update({
+                "contents":{
+                    "email": row["email"],
+                    "username": row["username"],
+                    "statusMessage": row["status_message"],
+                    "hashtagList": row["hashtag_list"].split(",")[:-1], ## [:-1] remove last ""
+                    "followingNum": row["following_num"],
+                    "followersNum": row["followers_num"],
+                }
+            })
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+    except Exception as e:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
 
     return Response(res)
+
+
+@api_view(["PUT"])
+def update_user_info(request):
+    dict_is_authenticated = is_authenticated(request)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    try:
+        if dict_is_authenticated["bool_authenticated"]:
+            column = request.data["column"]
+            val = request.data["val"]
+
+            id = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])["id"]
+            MySQLHandler.update("users", key="id", val=id, dict_update_column_val={column: val})
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    except Exception as e:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
 
 
 @api_view(["POST"])

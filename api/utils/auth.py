@@ -36,8 +36,9 @@ class Login(BaseAuthentication):
             token = None
             print("\n\tlogin failed\n")
         else:
-            username = MySQLHandler.fetch("users", key="email", val=email)
-            token = generate_token(user.pk, email=user.username, username=user.username)
+            row = MySQLHandler.fetch("users", key="email", val=email)
+            id, username = row["id"], row["username"]
+            token = generate_token(id, email=email, username=username)
             print("\n\tlogin successfully\n")
 
         return (token, None)
@@ -59,7 +60,7 @@ def is_authenticated(request):
         username = decoded_token.get("username")
         exp = decoded_token.get("exp")
         new_token = generate_token(id, email, username)
-        
+
         if int(exp) < int(time.time()):
             bool_authenticated = False
             reason = "expired token"
