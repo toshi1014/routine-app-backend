@@ -46,9 +46,9 @@ def signup(request):
     try:
         user = User.objects.create_user(username=email, password=password)
         user = authenticate(request, username=email, password=password)
-        token = generate_token(user.pk)
+        token = generate_token(user.pk, email, username)
         status = True
-        MySQLHandler.insert("users", {"email": email})
+        MySQLHandler.insert("users", {"email": email, "username": username})
         print("created successfully")
     except Exception as e:
         print("\n\tErr:", e, "\n")
@@ -65,28 +65,36 @@ def signup(request):
 
 @api_view(["POST"])
 def mypage_login(request):
-    bool_authenticated, reason, new_token = is_authenticated(request)
+    dict_is_authenticated = is_authenticated(request)
 
     res = [{
-        "status": bool_authenticated,
-        "token": new_token
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
     }]
 
-    if bool_authenticated:
-        res[0].update({"username": "John Doe"})
+    if dict_is_authenticated["bool_authenticated"]:
+        row = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])
+
+        res[0].update({
+            "contents":{
+                "email": row["email"],
+                "username": row["username"],
+                "statusMessage": row["status_message"],
+            }
+        })
     else:
-        res[0].update({"errorMessage": reason})
+        res[0].update({"errorMessage": dict_is_authenticated["reason"]})
 
     return Response(res)
 
 
 @api_view(["POST"])
 def post(request):
-    bool_authenticated, reason, new_token = is_authenticated(request)
-    if bool_authenticated:
+    dict_is_authenticated = is_authenticated(request)
+    if dict_is_authenticated["bool_authenticated"]:
         res = [{"status": True, "val":112}]
     else:
-        res = [{"status": False, "reason": reason}]
+        res = [{"status": False, "reason": dict_is_authenticated["reason"]}]
     return Response(res)
 
 

@@ -5,13 +5,16 @@ from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 import jwt
 import config
+from .handle_db import MySQLHandler
 
 
-def generate_token(id):
+def generate_token(id, email, username):
     timestamp = int(time.time()) + 60*60*24*7       ## expire in 1 weeek
     token = jwt.encode(
         {
             "id": id,
+            "email": email,
+            "username": username,
             "exp": timestamp,
         },
         config.SECRET_KEY,
@@ -33,7 +36,8 @@ class Login(BaseAuthentication):
             token = None
             print("\n\tlogin failed\n")
         else:
-            token = generate_token(user.pk)
+            username = MySQLHandler.fetch("users", key="email", val=email)
+            token = generate_token(user.pk, email=user.username, username=user.username)
             print("\n\tlogin successfully\n")
 
         return (token, None)
@@ -41,19 +45,35 @@ class Login(BaseAuthentication):
 
 def is_authenticated(request):
     token = request.data['token']
+    bool_authenticated = True
+    id = None
+    email = None
+    username = None
+    reason = None
     new_token = None
 
     try:
         decoded_token = jwt.decode(token, config.SECRET_KEY, algorithms=["HS256"])
-        new_token = generate_token(decoded_token.get("id"))
+        id = decoded_token.get("id")
+        email = decoded_token.get("email")
+        username = decoded_token.get("username")
+        new_token = generate_token(id, email, username)
     except:
         ## signature verification failed
-        return False, "signature verification failed", new_token
+        bool_authenticated = False
+        reason = "signature verification failed"
 
     exp = decoded_token.get("exp")
 
     if int(exp) < int(time.time()):
-        print("expired token")
-        return False, "expired token", new_token
+        bool_authenticated = False
+        reason = "expired token"
 
-    return True, None, new_token
+    return {
+        "bool_authenticated": bool_authenticated,
+        "id": id,
+        "email": email,
+        "username": username,
+        "reason": reason,
+        "new_token": new_token,
+    }

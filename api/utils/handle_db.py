@@ -40,9 +40,12 @@ class MySQLHandler():
         else:
             raise ValueError("multi value found")
 
-        # TODO: return as dict
+        ## return list row as dict
+        dict_row = {}
+        for column, val in zip(config.db_column_list[table_name], row):
+            dict_row.update({column: val})
+        return dict_row
 
-        return row
 
     @classmethod
     def fetchall(cls, table_name):
