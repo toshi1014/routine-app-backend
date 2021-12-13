@@ -25,7 +25,6 @@ class MySQLHandler():
         key_list, val_list = key_list[:-1], val_list[:-1]     ## remove last ","
 
         cmd = f"INSERT INTO {table_name} ({key_list}) VALUES ({val_list});"
-        print("\n\t", cmd, "\n")
         cursor.execute(cmd)
         db.commit()
 

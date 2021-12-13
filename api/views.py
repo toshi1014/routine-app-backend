@@ -46,7 +46,7 @@ def signup(request):
     try:
         user = User.objects.create_user(username=email, password=password)
         user = authenticate(request, username=email, password=password)
-        token = generate_token(user)
+        token = generate_token(user.pk)
         status = True
         MySQLHandler.insert("users", {"email": email})
         print("created successfully")
@@ -57,15 +57,32 @@ def signup(request):
 
     res = [{
         "status": status,
-        "token": str(token),
+        "token": token,
     }]
 
     return Response(res)
 
 
 @api_view(["POST"])
+def mypage_login(request):
+    bool_authenticated, reason, new_token = is_authenticated(request)
+
+    res = [{
+        "status": bool_authenticated,
+        "token": new_token
+    }]
+
+    if bool_authenticated:
+        res[0].update({"username": "John Doe"})
+    else:
+        res[0].update({"errorMessage": reason})
+
+    return Response(res)
+
+
+@api_view(["POST"])
 def post(request):
-    bool_authenticated, reason = is_authenticated(request)
+    bool_authenticated, reason, new_token = is_authenticated(request)
     if bool_authenticated:
         res = [{"status": True, "val":112}]
     else:

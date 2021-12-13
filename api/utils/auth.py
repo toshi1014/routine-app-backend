@@ -7,11 +7,11 @@ import jwt
 import config
 
 
-def generate_token(user):
+def generate_token(id):
     timestamp = int(time.time()) + 60*60*24*7       ## expire in 1 weeek
     token = jwt.encode(
         {
-            "id": user.pk,
+            "id": id,
             "exp": timestamp,
         },
         config.SECRET_KEY,
@@ -33,7 +33,7 @@ class Login(BaseAuthentication):
             token = None
             print("\n\tlogin failed\n")
         else:
-            token = generate_token(user)
+            token = generate_token(user.pk)
             print("\n\tlogin successfully\n")
 
         return (token, None)
@@ -41,16 +41,19 @@ class Login(BaseAuthentication):
 
 def is_authenticated(request):
     token = request.data['token']
+    new_token = None
+
     try:
         decoded_token = jwt.decode(token, config.SECRET_KEY, algorithms=["HS256"])
+        new_token = generate_token(decoded_token.get("id"))
     except:
         ## signature verification failed
-        return False, "signature verification failed"
+        return False, "signature verification failed", new_token
 
-    id, exp = decoded_token.get("id"), decoded_token.get("exp")
+    exp = decoded_token.get("exp")
 
     if int(exp) < int(time.time()):
         print("expired token")
-        return False, "expired token"
+        return False, "expired token", new_token
 
-    return True, None
+    return True, None, new_token
