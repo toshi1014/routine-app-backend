@@ -57,17 +57,16 @@ def is_authenticated(request):
         id = decoded_token.get("id")
         email = decoded_token.get("email")
         username = decoded_token.get("username")
+        exp = decoded_token.get("exp")
         new_token = generate_token(id, email, username)
+        
+        if int(exp) < int(time.time()):
+            bool_authenticated = False
+            reason = "expired token"
     except:
         ## signature verification failed
         bool_authenticated = False
         reason = "signature verification failed"
-
-    exp = decoded_token.get("exp")
-
-    if int(exp) < int(time.time()):
-        bool_authenticated = False
-        reason = "expired token"
 
     return {
         "bool_authenticated": bool_authenticated,
