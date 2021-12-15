@@ -48,7 +48,7 @@ def signup(request):
         user = User.objects.create_user(username=email, password=password)
         user = authenticate(request, username=email, password=password)
         MySQLHandler.insert("users", {"email": email, "username": username})
-        id = MySQLHandler.fetch("users", key="email", val=email)["id"]
+        id = MySQLHandler.fetch("users", {"email": email})["id"]
         token = generate_token(id, email, username)
         status = True
         print("created successfully")
@@ -74,27 +74,60 @@ def mypage_login(request):
         "token": dict_is_authenticated["new_token"],
     }]
 
-    try:
+    # try:
+    if True:
         if dict_is_authenticated["bool_authenticated"]:
-            row = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])
+            user_row = MySQLHandler.fetch(
+                "users", {"email": dict_is_authenticated["email"]}
+            )
+
+            post_row_list = MySQLHandler.fetchall(
+                "posts",
+                {"contributor_id": dict_is_authenticated["id"]},
+                allow_empty=True,
+            )
+
+            post_contents_row_list = [
+                MySQLHandler.fetch(
+                    "post_contents",
+                    {
+                        "post_id": post_row["id"],
+                        "step_num": 1
+                    },
+                    allow_empty=True,
+                ) for post_row in post_row_list
+            ]
+
+            posted_list = []
+            for post_row, post_contents_row in zip(post_row_list, post_contents_row_list):
+                posted_list.append({
+                    "contributor": user_row["username"],
+                    "title": post_row["title"],
+                    "desc": post_row["description"],
+                    "titleStep1": post_contents_row["title"],
+                    "descStep1": post_contents_row["description"],
+                })
 
             res[0].update({
                 "contents":{
-                    "email": row["email"],
-                    "username": row["username"],
-                    "statusMessage": row["status_message"],
-                    "hashtagList": row["hashtag_list"].split(","),
-                    "followingNum": row["following_num"],
-                    "followersNum": row["followers_num"],
+                    "header": {
+                        "email": user_row["email"],
+                        "username": user_row["username"],
+                        "statusMessage": user_row["status_message"],
+                        "hashtagList": user_row["hashtag_list"].split(","),
+                        "followingNum": user_row["following_num"],
+                        "followersNum": user_row["followers_num"],
+                    },
+                    "postedList": posted_list,
                 }
             })
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-    except Exception as e:
+    # except Exception as e:
+    else:
         print("\n\tErr:", e, "\n")
         res[0]["status"] = False
         res[0].update({"errorMessage": "backend error"})
-
 
     return Response(res)
 
@@ -111,7 +144,7 @@ def update_user_info(request):
         if dict_is_authenticated["bool_authenticated"]:
             column = request.data["column"]
             val = request.data["val"]
-            id = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])["id"]
+            id = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})["id"]
             MySQLHandler.update("users", key="id", val=id, dict_update_column_val={column: val})
 
         else:
@@ -140,7 +173,7 @@ def post(request):
             hashtag_list = request.data["hashtagLabelList"]
             routine_element_list = request.data["routineElements"]
 
-            user_id = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])["id"]
+            user_id = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})["id"]
             lastrowid = MySQLHandler.insert(
                 "posts",
                 {

@@ -16,59 +16,82 @@ db.commit()
 class MySQLHandler():
     @classmethod
     def insert(cls, table_name, key_val_dict):
-        key_list = ""
-        val_list = ""
+        str_keys= ""
+        str_vals = ""
         for key in key_val_dict:
-            key_list += key + ","
+            str_keys += key + ","
             if isinstance(key_val_dict[key], int):
-                val_list += "" + str(key_val_dict[key]) + ","
+                str_vals += "" + str(key_val_dict[key]) + ","
             else:
-                val_list += "'" + key_val_dict[key] + "',"
+                str_vals += "'" + key_val_dict[key] + "',"
 
-        key_list, val_list = key_list[:-1], val_list[:-1]     ## remove last ","
+        str_keys, str_vals = str_keys[:-1], str_vals[:-1]     ## remove last ","
 
-        cmd = f"INSERT INTO {table_name} ({key_list}) VALUES ({val_list});"
+        cmd = f"INSERT INTO {table_name} ({str_keys}) VALUES ({str_vals});"
         print("\n\t", cmd, "\n")
         cursor.execute(cmd)
         db.commit()
         return cursor.lastrowid
 
-    @classmethod
-    def fetch(cls, table_name, key, val):
-        cmd = f"SELECT * FROM {table_name} WHERE {key}='{val}';"
+    def fetch_base(table_name, key_val_dict):
+        str_conditions = ""
+        for key in key_val_dict:
+            if isinstance(key_val_dict[key], int):
+                str_conditions += f"{key}=" + str(key_val_dict[key]) + " AND "
+            else:
+                str_conditions += f"{key} = '{key_val_dict[key]}' AND "
+
+        str_conditions = str_conditions[:-5]    ## remove last " AND "
+
+        cmd = f"SELECT * FROM {table_name} WHERE {str_conditions};"
+        print("\n\t", cmd, "\n")
         cursor.execute(cmd)
-        rows = cursor.fetchall()
-        if len(rows) == 1:
-            row = rows[0]
-        elif len(rows) == 0:
-            raise ValueError("value not found")
+        row_list = cursor.fetchall()
+
+        ## return list row as dict
+        dict_row_list = []
+        for row in row_list:
+            dict_row = {}
+            for column, val in zip(config.db_column_list[table_name], row):
+                dict_row.update({column: val})
+            dict_row_list.append(dict_row)
+        return dict_row_list
+
+    @classmethod
+    def fetch(cls, table_name, key_val_dict, allow_empty=False):
+        row_list = cls.fetch_base(table_name, key_val_dict)
+        if len(row_list) == 1:
+            return row_list[0]
+        elif len(row_list) == 0:
+            if not allow_empty:
+                raise ValueError("value not found")
+            return row_list
         else:
             raise ValueError("multi value found")
 
-        ## return list row as dict
-        dict_row = {}
-        for column, val in zip(config.db_column_list[table_name], row):
-            dict_row.update({column: val})
-        return dict_row
-
-
     @classmethod
-    def fetchall(cls, table_name):
-        cmd = f"SELECT * FROM {table_name} WHERE id=(SELECT MAX(id) from {table_name})"
-        cursor.execute(cmd)
-        max_id = cursor.fetchall()[0][0]
+    def fetchall(cls, table_name, key_val_dict, allow_empty=False):
+        row_list = cls.fetch_base(table_name, key_val_dict)
+        if (len(row_list) == 0) & (not allow_empty):
+            raise ValueError("value not found")
+        else:
+            return row_list
 
-        row_list = []
-        for i in range(1, max_id+1):
-            row = self.fetch(table_name, "id", i)
-
-            ## if no val in returned dict
-            if len(row) != 0:
-                row_list.append(row)
-
-        # TODO: return as dict
-
-        return row_list
+        # cmd = f"SELECT * FROM {table_name} WHERE id=(SELECT MAX(id) from {table_name})"
+        # cursor.execute(cmd)
+        # max_id = cursor.fetchall()[0][0]
+        #
+        # row_list = []
+        # for i in range(1, max_id+1):
+        #     row = self.fetch(table_name, "id", i)
+        #
+        #     ## if no val in returned dict
+        #     if len(row) != 0:
+        #         row_list.append(row)
+        #
+        # # TODO: return as dict
+        #
+        # return row_list
 
     @classmethod
     def delete(cls, table_name, key, val):

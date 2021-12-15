@@ -36,7 +36,7 @@ class Login(BaseAuthentication):
             token = None
             print("\n\tlogin failed\n")
         else:
-            row = MySQLHandler.fetch("users", key="email", val=email)
+            row = MySQLHandler.fetch("users", {"email": email})
             id, username = row["id"], row["username"]
             token = generate_token(id, email=email, username=username)
             print("\n\tlogin successfully\n")
