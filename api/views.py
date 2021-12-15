@@ -46,10 +46,10 @@ def signup(request):
     try:
         user = User.objects.create_user(username=email, password=password)
         user = authenticate(request, username=email, password=password)
+        MySQLHandler.insert("users", {"email": email, "username": username})
         id = MySQLHandler.fetch("users", key="email", val=email)["id"]
         token = generate_token(id, email, username)
         status = True
-        MySQLHandler.insert("users", {"email": email, "username": username})
         print("created successfully")
     except Exception as e:
         print("\n\tErr:", e, "\n")
@@ -82,7 +82,7 @@ def mypage_login(request):
                     "email": row["email"],
                     "username": row["username"],
                     "statusMessage": row["status_message"],
-                    "hashtagList": row["hashtag_list"].split(",")[:-1], ## [:-1] remove last ""
+                    "hashtagList": row["hashtag_list"].split(","),
                     "followingNum": row["following_num"],
                     "followersNum": row["followers_num"],
                 }
@@ -110,7 +110,6 @@ def update_user_info(request):
         if dict_is_authenticated["bool_authenticated"]:
             column = request.data["column"]
             val = request.data["val"]
-
             id = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])["id"]
             MySQLHandler.update("users", key="id", val=id, dict_update_column_val={column: val})
 

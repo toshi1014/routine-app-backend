@@ -78,7 +78,6 @@ class MySQLHandler():
                 for column in dict_update_column_val
         ])[:-1]     ## [:-1] remove last ","
         cmd = f"UPDATE {table_name} SET {str_column_val} WHERE {key}='{val}';"
-        print("\n\t", cmd, "\t")
         cursor.execute(cmd)
         db.commit()
 
