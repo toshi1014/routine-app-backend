@@ -1,8 +1,7 @@
 id, INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
-contributor_id, INT UNSIGNED
+post_id, INT UNSIGNED
+step_num, INT UNSIGNED
 title, VARCHAR(32)
+subtitle, VARCHAR(140)
 description, VARCHAR(140)
-like_num, INT UNSIGNED DEFAULT 0
-last_updated, DATETIME
-hashtag_list, VARCHAR(140)
 ===EOF=======================

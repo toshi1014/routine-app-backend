@@ -9,4 +9,5 @@ urlpatterns = [
     path("mypage_login/update_user_info/", views.update_user_info),
     path("post/", views.post),
     path("debug/", views.debug),
+    path("post_debug/", views.post_debug),
 ]

@@ -20,13 +20,18 @@ class MySQLHandler():
         val_list = ""
         for key in key_val_dict:
             key_list += key + ","
-            val_list += "'" + key_val_dict[key] + "',"
+            if isinstance(key_val_dict[key], int):
+                val_list += "" + str(key_val_dict[key]) + ","
+            else:
+                val_list += "'" + key_val_dict[key] + "',"
 
         key_list, val_list = key_list[:-1], val_list[:-1]     ## remove last ","
 
         cmd = f"INSERT INTO {table_name} ({key_list}) VALUES ({val_list});"
+        print("\n\t", cmd, "\n")
         cursor.execute(cmd)
         db.commit()
+        return cursor.lastrowid
 
     @classmethod
     def fetch(cls, table_name, key, val):

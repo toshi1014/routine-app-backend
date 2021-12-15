@@ -1,3 +1,4 @@
+import datetime
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
@@ -124,9 +125,58 @@ def update_user_info(request):
     return Response(res)
 
 
-
 @api_view(["POST"])
 def post(request):
+    dict_is_authenticated = is_authenticated(request)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    try:
+        if dict_is_authenticated["bool_authenticated"]:
+            title = request.data["title"]
+            desc = request.data["desc"]
+            hashtag_list = request.data["hashtagLabelList"]
+            routine_element_list = request.data["routineElements"]
+
+            user_id = MySQLHandler.fetch("users", key="email", val=dict_is_authenticated["email"])["id"]
+            lastrowid = MySQLHandler.insert(
+                "posts",
+                {
+                    "contributor_id": user_id,
+                    "title": title,
+                    "description": desc,
+                    "last_updated": str(datetime.datetime.now())[:-7],
+                    "hashtag_list": ",".join(hashtag_list),
+                }
+            )
+
+            for idx, routine_element in enumerate(routine_element_list):
+                MySQLHandler.insert(
+                    "post_contents",
+                    {
+                        "post_id": lastrowid,
+                        "step_num": idx + 1,        ## idx to order
+                        "title": routine_element["title"],
+                        "subtitle": routine_element["subtitle"],
+                        "description": routine_element["desc"],
+                    }
+                )
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    except Exception as e:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def post_debug(request):
     dict_is_authenticated = is_authenticated(request)
     if dict_is_authenticated["bool_authenticated"]:
         res = [{"status": True, "val":112}]
