@@ -125,7 +125,6 @@ def mypage_login(request):
                         "descStep1": xx_contents_row["description"],
                     })
 
-
             res[0].update({
                 "contents":{
                     "header": {
@@ -227,6 +226,64 @@ def post_or_draft(request):
                         "description": routine_element["desc"],
                     }
                 )
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def get_draft(request):
+    dict_is_authenticated = is_authenticated(request)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    # try:
+    if True:
+        if dict_is_authenticated["bool_authenticated"]:
+            draft_id = request.data["id"]
+            user_row = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})
+            draft_row = MySQLHandler.fetch("drafts", {"id": draft_id, "contributor_id": user_row["id"]})
+
+            raw_draft_contents_row_list = MySQLHandler.fetchall(
+                "draft_contents", {"post_id": draft_row["id"]},
+            )
+
+            element_list = []
+
+            draft_contents_row_list = sorted(raw_draft_contents_row_list, key=lambda kv: kv["step_num"])
+            
+            for draft_contents_row in draft_contents_row_list:
+                element_list.append({
+                    "title": draft_contents_row["title"],
+                    "subtitle": draft_contents_row["subtitle"],
+                    "desc": draft_contents_row["description"],
+                    "imagePath": "logo192.png",     # TEMP: image path
+                })
+
+            res[0].update({
+                "contents":{
+                        "header": {
+                            "title": draft_row["title"],
+                            "desc": draft_row["description"],
+                            "hashtagList": draft_row["hashtag_list"],
+                            "like": draft_row["like_num"],
+                            "contributor": user_row["username"],
+                            "lastUpdated": draft_row["last_updated"],
+                        },
+                        "elementList": element_list,
+                    },
+                }
+            )
 
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
