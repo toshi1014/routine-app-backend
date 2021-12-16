@@ -81,32 +81,50 @@ def mypage_login(request):
                 "users", {"email": dict_is_authenticated["email"]}
             )
 
-            post_row_list = MySQLHandler.fetchall(
-                "posts",
-                {"contributor_id": dict_is_authenticated["id"]},
-                allow_empty=True,
-            )
+            posted_list = []
+            draft_list = []
 
-            post_contents_row_list = [
-                MySQLHandler.fetch(
-                    "post_contents",
-                    {
-                        "post_id": post_row["id"],
-                        "step_num": 1
-                    },
-                    allow_empty=True,
-                ) for post_row in post_row_list
+            component_list = [
+                {
+                    "title_table": "posts",
+                    "contents_table": "post_contents",
+                    "xx_list": posted_list,
+                },
+                {
+                    "title_table": "drafts",
+                    "contents_table": "draft_contents",
+                    "xx_list": draft_list,
+                },
             ]
 
-            posted_list = []
-            for post_row, post_contents_row in zip(post_row_list, post_contents_row_list):
-                posted_list.append({
-                    "contributor": user_row["username"],
-                    "title": post_row["title"],
-                    "desc": post_row["description"],
-                    "titleStep1": post_contents_row["title"],
-                    "descStep1": post_contents_row["description"],
-                })
+            for component in component_list:
+                xx_row_list = MySQLHandler.fetchall(
+                    component["title_table"],
+                    {"contributor_id": dict_is_authenticated["id"]},
+                    allow_empty=True,
+                )
+
+                xx_contents_row_list = [
+                    MySQLHandler.fetch(
+                        component["contents_table"],
+                        {
+                            "post_id": xx_row["id"],
+                            "step_num": 1
+                        },
+                        allow_empty=True,
+                    ) for xx_row in xx_row_list
+                ]
+
+                for xx_row, xx_contents_row in zip(xx_row_list, xx_contents_row_list):
+                    component["xx_list"].append({
+                        "id": xx_row["id"],
+                        "contributor": user_row["username"],
+                        "title": xx_row["title"],
+                        "desc": xx_row["description"],
+                        "titleStep1": xx_contents_row["title"],
+                        "descStep1": xx_contents_row["description"],
+                    })
+
 
             res[0].update({
                 "contents":{
@@ -119,6 +137,7 @@ def mypage_login(request):
                         "followersNum": user_row["followers_num"],
                     },
                     "postedList": posted_list,
+                    "draftList": draft_list,
                 }
             })
         else:
@@ -159,23 +178,35 @@ def update_user_info(request):
 
 
 @api_view(["POST"])
-def post(request):
+def post_or_draft(request):
     dict_is_authenticated = is_authenticated(request)
     res = [{
         "status": dict_is_authenticated["bool_authenticated"],
         "token": dict_is_authenticated["new_token"],
     }]
 
-    try:
+    # try:
+    if True:
         if dict_is_authenticated["bool_authenticated"]:
+            post_or_draft = request.data["postOrDraft"]
             title = request.data["title"]
             desc = request.data["desc"]
             hashtag_list = request.data["hashtagLabelList"]
             routine_element_list = request.data["routineElements"]
 
+            if post_or_draft == "post":
+                title_table = "posts"
+                contents_table = "post_contents"
+            elif post_or_draft == "draft":
+                title_table = "drafts"
+                contents_table = "draft_contents"
+            else:
+                raise Exception(f"unknown post_or_draft {post_or_draft}")
+
+
             user_id = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})["id"]
             lastrowid = MySQLHandler.insert(
-                "posts",
+                title_table,
                 {
                     "contributor_id": user_id,
                     "title": title,
@@ -187,7 +218,7 @@ def post(request):
 
             for idx, routine_element in enumerate(routine_element_list):
                 MySQLHandler.insert(
-                    "post_contents",
+                    contents_table,
                     {
                         "post_id": lastrowid,
                         "step_num": idx + 1,        ## idx to order
@@ -200,7 +231,8 @@ def post(request):
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
 
-    except Exception as e:
+    # except Exception as e:
+    else:
         print("\n\tErr:", e, "\n")
         res[0]["status"] = False
         res[0].update({"errorMessage": "backend error"})
