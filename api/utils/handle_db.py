@@ -100,12 +100,23 @@ class MySQLHandler():
         db.commit()
 
     @classmethod
-    def update(cls, table_name, key, val, dict_update_column_val):
-        str_column_val = ",".join([
-            f"{column} = '{dict_update_column_val[column]}',"
+    def update(cls, table_name, key_val_dict, dict_update_column_val):
+        str_column_val = ", ".join([
+            f"{column}='{dict_update_column_val[column]}'"
                 for column in dict_update_column_val
-        ])[:-1]     ## [:-1] remove last ","
-        cmd = f"UPDATE {table_name} SET {str_column_val} WHERE {key}='{val}';"
+        ])
+
+        str_conditions = ""
+        for key in key_val_dict:
+            if isinstance(key_val_dict[key], int):
+                str_conditions += f"{key}=" + str(key_val_dict[key]) + " AND "
+            else:
+                str_conditions += f"{key} = '{key_val_dict[key]}' AND "
+
+        str_conditions = str_conditions[:-5]    ## remove last " AND "
+
+        cmd = f"UPDATE {table_name} SET {str_column_val} WHERE {str_conditions};"
+        print("\n\t", cmd, "\n")
         cursor.execute(cmd)
         db.commit()
 

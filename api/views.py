@@ -184,10 +184,13 @@ def post_or_draft(request):
         "token": dict_is_authenticated["new_token"],
     }]
 
+    print("\n\t", request.data, "\n")
+
     # try:
     if True:
         if dict_is_authenticated["bool_authenticated"]:
             post_or_draft = request.data["postOrDraft"]
+            post_id = request.data["postId"]
             title = request.data["title"]
             desc = request.data["desc"]
             hashtag_list = request.data["hashtagLabelList"]
@@ -204,28 +207,48 @@ def post_or_draft(request):
 
 
             user_id = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})["id"]
-            lastrowid = MySQLHandler.insert(
-                title_table,
-                {
-                    "contributor_id": user_id,
-                    "title": title,
-                    "description": desc,
-                    "last_updated": str(datetime.datetime.now())[:-7],
-                    "hashtag_list": ",".join(hashtag_list),
-                }
-            )
+            contents_title = {
+                "contributor_id": user_id,
+                "title": title,
+                "description": desc,
+                "last_updated": str(datetime.datetime.now())[:-7],
+                "hashtag_list": ",".join(hashtag_list),
+            }
 
-            for idx, routine_element in enumerate(routine_element_list):
-                MySQLHandler.insert(
-                    contents_table,
-                    {
-                        "post_id": lastrowid,
-                        "step_num": idx + 1,        ## idx to order
-                        "title": routine_element["title"],
-                        "subtitle": routine_element["subtitle"],
-                        "description": routine_element["desc"],
-                    }
+
+            ## if update
+            if (post_id):
+                MySQLHandler.update(
+                    title_table, {"id": post_id}, contents_title
                 )
+                for idx, routine_element in enumerate(routine_element_list):
+                    MySQLHandler.update(
+                        contents_table,
+                        {"post_id": post_id, "step_num": idx+1},
+                        {
+                            "title": routine_element["title"],
+                            "subtitle": routine_element["subtitle"],
+                            "description": routine_element["desc"],
+                        }
+                    )
+
+            ## if new post
+            else:
+                lastrowid = MySQLHandler.insert(
+                    title_table, contents_title
+                )
+
+                for idx, routine_element in enumerate(routine_element_list):
+                    MySQLHandler.insert(
+                        contents_table,
+                        {
+                            "post_id": lastrowid,
+                            "step_num": idx + 1,        ## idx to order
+                            "title": routine_element["title"],
+                            "subtitle": routine_element["subtitle"],
+                            "description": routine_element["desc"],
+                        }
+                    )
 
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
@@ -247,6 +270,7 @@ def get_draft(request):
         "token": dict_is_authenticated["new_token"],
     }]
 
+
     # try:
     if True:
         if dict_is_authenticated["bool_authenticated"]:
@@ -261,7 +285,7 @@ def get_draft(request):
             element_list = []
 
             draft_contents_row_list = sorted(raw_draft_contents_row_list, key=lambda kv: kv["step_num"])
-            
+
             for draft_contents_row in draft_contents_row_list:
                 element_list.append({
                     "title": draft_contents_row["title"],
@@ -275,7 +299,7 @@ def get_draft(request):
                         "header": {
                             "title": draft_row["title"],
                             "desc": draft_row["description"],
-                            "hashtagList": draft_row["hashtag_list"],
+                            "hashtagList": user_row["hashtag_list"].split(","),
                             "like": draft_row["like_num"],
                             "contributor": user_row["username"],
                             "lastUpdated": draft_row["last_updated"],
