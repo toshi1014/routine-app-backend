@@ -269,6 +269,60 @@ def post_or_draft(request):
     return Response(res)
 
 
+@api_view(["GET"])
+def get_contents(request, post_id):
+    res = [{
+        "status": True,
+        "token": "",
+    }]
+
+    print("\n\t", post_id, "\n")
+
+    # try:
+    if True:
+        post_row = MySQLHandler.fetch("posts", {"id": post_id})
+        user_row = MySQLHandler.fetch("users", {"id": post_row["contributor_id"]})
+
+        raw_post_contents_row_list = MySQLHandler.fetchall(
+            "post_contents", {"post_id": post_row["id"]},
+        )
+
+        element_list = []
+
+        post_contents_row_list = sorted(raw_post_contents_row_list, key=lambda kv: kv["step_num"])
+
+        for post_contents_row in post_contents_row_list:
+            element_list.append({
+                "title": post_contents_row["title"],
+                "subtitle": post_contents_row["subtitle"],
+                "desc": post_contents_row["description"],
+                "imagePath": "logo192.png",     # TEMP: image path
+            })
+
+        res[0].update({
+            "contents":{
+                    "header": {
+                        "title": post_row["title"],
+                        "desc": post_row["description"],
+                        "hashtagList": post_row["hashtag_list"].split(","),
+                        "like": post_row["like_num"],
+                        "contributor": user_row["username"],
+                        "lastUpdated": post_row["last_updated"],
+                    },
+                    "elementList": element_list,
+                },
+            }
+        )
+
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
 @api_view(["POST"])
 def get_draft(request):
     dict_is_authenticated = is_authenticated(request)
@@ -306,7 +360,7 @@ def get_draft(request):
                         "header": {
                             "title": draft_row["title"],
                             "desc": draft_row["description"],
-                            "hashtagList": user_row["hashtag_list"].split(","),
+                            "hashtagList": draft_row["hashtag_list"].split(","),
                             "like": draft_row["like_num"],
                             "contributor": user_row["username"],
                             "lastUpdated": draft_row["last_updated"],
