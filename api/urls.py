@@ -8,6 +8,7 @@ urlpatterns = [
     path("mypage_login/", views.mypage_login),
     path("mypage_login/update_user_info/", views.update_user_info),
     path("mypage_login/get_draft/", views.get_draft),
+    path("mypage_login/delete_post_or_draft/", views.delete_post_or_draft),
     path("post_or_draft/", views.post_or_draft),
     path("contents/<int:post_id>/", views.get_contents),
     path("debug/", views.debug),

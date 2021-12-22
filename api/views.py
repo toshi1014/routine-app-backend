@@ -198,6 +198,7 @@ def post_or_draft(request):
             routine_element_list = request.data["routineElements"]
 
             bool_draft2post = bool_edited_draft & (post_or_draft == "post")
+            bool_post2draft = (not bool_edited_draft) & (post_or_draft == "draft") & bool(post_id)
 
             if post_or_draft == "post":
                 title_table = "posts"
@@ -219,8 +220,8 @@ def post_or_draft(request):
             }
 
 
-            ## if update & not draft to post
-            if bool(post_id) & (not bool_draft2post):
+            ## if just update & not draft2post & not post2draft
+            if bool(post_id) & (not bool_draft2post) & (not bool_post2draft):
                 MySQLHandler.update(
                     title_table, {"id": post_id}, contents_title
                 )
@@ -256,6 +257,10 @@ def post_or_draft(request):
                 if bool_draft2post:
                     ## delete draft
                     MySQLHandler.delete("drafts", "id", post_id)
+                    MySQLHandler.delete("draft_contents", "post_id", post_id)
+                elif bool_post2draft:
+                    MySQLHandler.delete("posts", "id", post_id)
+                    MySQLHandler.delete("post_contents", "post_id", post_id)
 
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
@@ -375,6 +380,39 @@ def get_draft(request):
 
     # except Exception as e:
     else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def delete_post_or_draft(request):
+    dict_is_authenticated = is_authenticated(request)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    try:
+        if dict_is_authenticated["bool_authenticated"]:
+            postOrDraft = request.data["postOrDraft"]
+            id = request.data["id"]
+
+            if postOrDraft == "post":
+                MySQLHandler.delete("posts", "id", id)
+                MySQLHandler.delete("post_contents", "post_id", id)
+            elif postOrDraft == "draft":
+                MySQLHandler.delete("drafts", "id", id)
+                MySQLHandler.delete("draft_contents", "post_id", id)
+            else:
+                raise ValueError(f"unknown value {postOrDraft}")
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    except Exception as e:
         print("\n\tErr:", e, "\n")
         res[0]["status"] = False
         res[0].update({"errorMessage": "backend error"})
