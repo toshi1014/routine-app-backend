@@ -190,11 +190,14 @@ def post_or_draft(request):
     if True:
         if dict_is_authenticated["bool_authenticated"]:
             post_or_draft = request.data["postOrDraft"]
-            post_id = request.data["postId"]
+            post_id = request.data["postId"]    ## None or int
+            bool_edited_draft = request.data["boolEditedDraft"]
             title = request.data["title"]
             desc = request.data["desc"]
             hashtag_list = request.data["hashtagLabelList"]
             routine_element_list = request.data["routineElements"]
+
+            bool_draft2post = bool_edited_draft & (post_or_draft == "post")
 
             if post_or_draft == "post":
                 title_table = "posts"
@@ -216,8 +219,8 @@ def post_or_draft(request):
             }
 
 
-            ## if update
-            if (post_id):
+            ## if update & not draft to post
+            if bool(post_id) & (not bool_draft2post):
                 MySQLHandler.update(
                     title_table, {"id": post_id}, contents_title
                 )
@@ -249,6 +252,10 @@ def post_or_draft(request):
                             "description": routine_element["desc"],
                         }
                     )
+
+                if bool_draft2post:
+                    ## delete draft
+                    MySQLHandler.delete("drafts", "id", post_id)
 
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})

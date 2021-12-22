@@ -95,7 +95,12 @@ class MySQLHandler():
 
     @classmethod
     def delete(cls, table_name, key, val):
-        cmd = f"DELETE * FROM {table_name} WHERE {key}='{val}';"
+        if isinstance(val, int):
+            val_sql = str(val)
+        else:
+            val_sql = f"'{val}'"
+        cmd = f"DELETE FROM {table_name} WHERE {key}={val_sql};"
+        print("\n\t", cmd, "\n")
         cursor.execute(cmd)
         db.commit()
 
