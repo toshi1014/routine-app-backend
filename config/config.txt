@@ -1,1 +1,2 @@
 readonly DB_NAME="routine_app"
+readonly POSTS_PER_PAGE=20

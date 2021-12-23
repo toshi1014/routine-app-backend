@@ -33,7 +33,16 @@ class MySQLHandler():
         db.commit()
         return cursor.lastrowid
 
-    def fetch_base(table_name, key_val_dict):
+    def change_into_dict(cls, table_name, row_list):
+        dict_row_list = []
+        for row in row_list:
+            dict_row = {}
+            for column, val in zip(config.db_column_list[table_name], row):
+                dict_row.update({column: val})
+            dict_row_list.append(dict_row)
+        return dict_row_list
+
+    def fetch_base(cls, table_name, key_val_dict):
         str_conditions = ""
         for key in key_val_dict:
             if isinstance(key_val_dict[key], int):
@@ -47,19 +56,11 @@ class MySQLHandler():
         print("\n\t", cmd, "\n")
         cursor.execute(cmd)
         row_list = cursor.fetchall()
-
-        ## return list row as dict
-        dict_row_list = []
-        for row in row_list:
-            dict_row = {}
-            for column, val in zip(config.db_column_list[table_name], row):
-                dict_row.update({column: val})
-            dict_row_list.append(dict_row)
-        return dict_row_list
+        return cls.change_into_dict(cls, table_name, row_list)
 
     @classmethod
     def fetch(cls, table_name, key_val_dict, allow_empty=False):
-        row_list = cls.fetch_base(table_name, key_val_dict)
+        row_list = cls.fetch_base(cls, table_name, key_val_dict)
         if len(row_list) == 1:
             return row_list[0]
         elif len(row_list) == 0:
@@ -71,7 +72,7 @@ class MySQLHandler():
 
     @classmethod
     def fetchall(cls, table_name, key_val_dict, allow_empty=False):
-        row_list = cls.fetch_base(table_name, key_val_dict)
+        row_list = cls.fetch_base(cls, table_name, key_val_dict)
         if (len(row_list) == 0) & (not allow_empty):
             raise ValueError("value not found")
         else:
@@ -129,3 +130,37 @@ class MySQLHandler():
     def drop(cls, table_name):
         cmd = f"DROP table {table_name};"
         cursor.execute(cmd)
+
+    @classmethod
+    def search(cls, keyword, table_column_dict):
+        result_list = []
+        id_list = []
+
+        for table in table_column_dict:
+            cmd = f"SELECT * FROM {table} WHERE "
+            for column in table_column_dict[table]:
+                cmd += f"{column} LIKE '%{keyword}%' OR "
+
+            cmd = cmd[:-4] + ";"        ## remove last " OR "
+            print("\n\t", cmd, "\n")
+            cursor.execute(cmd)
+            row_list = cursor.fetchall()
+            row_dict_list = cls.change_into_dict(cls, table, row_list)
+
+            ## if xx_contents, check not to append duplicate post
+            if table[-8:] == "contents":
+                for contents_row_dict in row_dict_list:
+                    if not contents_row_dict["post_id"] in id_list:
+                        id_list.append(contents_row_dict["post_id"])
+
+                        row_dict = cls.fetch(
+                            table[:-9] + "s",   ## get parent table
+                            {"id": contents_row_dict["post_id"]},
+                            allow_empty=False
+                        )
+                        result_list.append(row_dict)
+            else:
+                result_list = row_dict_list
+                id_list = [row_dict["id"] for row_dict in row_dict_list]
+
+        return result_list

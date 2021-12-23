@@ -6,6 +6,43 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view,authentication_classes, permission_classes
 from .utils.auth import Login, is_authenticated, generate_token
 from .utils.handle_db import MySQLHandler
+import config
+
+
+def get_pack_content_list(table, xx_row_list, user_row=None, allow_empty=True):
+    xx_list = []
+
+    xx_contents_row_list = [
+        MySQLHandler.fetch(
+            table,
+            {
+                "post_id": xx_row["id"],
+                "step_num": 1
+            },
+            allow_empty,
+        ) for xx_row in xx_row_list
+    ]
+
+    for xx_row, xx_contents_row in zip(xx_row_list, xx_contents_row_list):
+        ## if user_row is not provided
+        if not bool(user_row):
+            user_row = MySQLHandler.fetch(
+                "users",
+                {"id": xx_row["contributor_id"]},
+                allow_empty=False,
+            )
+
+        xx_list.append({
+            "id": xx_row["id"],
+            "contributor": user_row["username"],
+            "title": xx_row["title"],
+            "desc": xx_row["description"],
+            "titleStep1": xx_contents_row["title"],
+            "descStep1": xx_contents_row["description"],
+            "like": xx_row["like_num"],
+        })
+
+    return xx_list
 
 
 @api_view(["POST"])
@@ -81,49 +118,27 @@ def mypage_login(request):
                 "users", {"email": dict_is_authenticated["email"]}
             )
 
-            posted_list = []
-            draft_list = []
-
-            component_list = [
-                {
-                    "title_table": "posts",
-                    "contents_table": "post_contents",
-                    "xx_list": posted_list,
-                },
-                {
-                    "title_table": "drafts",
-                    "contents_table": "draft_contents",
-                    "xx_list": draft_list,
-                },
-            ]
-
-            for component in component_list:
-                xx_row_list = MySQLHandler.fetchall(
-                    component["title_table"],
+            posted_list = get_pack_content_list(
+                "post_contents",
+                MySQLHandler.fetchall(
+                    "posts",
                     {"contributor_id": dict_is_authenticated["id"]},
                     allow_empty=True,
-                )
+                ),
+                user_row,
+                allow_empty=True,
+            )
 
-                xx_contents_row_list = [
-                    MySQLHandler.fetch(
-                        component["contents_table"],
-                        {
-                            "post_id": xx_row["id"],
-                            "step_num": 1
-                        },
-                        allow_empty=True,
-                    ) for xx_row in xx_row_list
-                ]
-
-                for xx_row, xx_contents_row in zip(xx_row_list, xx_contents_row_list):
-                    component["xx_list"].append({
-                        "id": xx_row["id"],
-                        "contributor": user_row["username"],
-                        "title": xx_row["title"],
-                        "desc": xx_row["description"],
-                        "titleStep1": xx_contents_row["title"],
-                        "descStep1": xx_contents_row["description"],
-                    })
+            draft_list = get_pack_content_list(
+                "draft_contents",
+                MySQLHandler.fetchall(
+                    "drafts",
+                    {"contributor_id": dict_is_authenticated["id"]},
+                    allow_empty=True,
+                ),
+                user_row,
+                allow_empty=True,
+            )
 
             res[0].update({
                 "contents":{
@@ -336,7 +351,6 @@ def get_draft(request):
         "token": dict_is_authenticated["new_token"],
     }]
 
-
     # try:
     if True:
         if dict_is_authenticated["bool_authenticated"]:
@@ -413,6 +427,52 @@ def delete_post_or_draft(request):
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
 
     except Exception as e:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["GET"])
+def search_results(request, keyword, target, page):
+    res = [{
+        "status": True,
+        "token": "",
+    }]
+
+    # try:
+    if True:
+        # COMBAK: use target
+        raw_result_row_list = MySQLHandler.search(
+            keyword,
+            {
+                "posts": ["title", "description"],
+                "post_contents": ["title", "subtitle", "description"]
+            },
+        )
+
+        result_row_list = raw_result_row_list[:config.POSTS_PER_PAGE]
+
+        result_list = get_pack_content_list(
+            "post_contents",
+            result_row_list,
+            allow_empty=True,
+        )
+
+        page_length = len(raw_result_row_list)//config.POSTS_PER_PAGE
+        if page_length == 0:
+            page_length = 1
+
+        res[0].update({
+            "contents":{
+                    "resultList": result_list,
+                    "pageLength": page_length,
+                },
+            }
+        )
+    # except Exception as e:
+    else:
         print("\n\tErr:", e, "\n")
         res[0]["status"] = False
         res[0].update({"errorMessage": "backend error"})
