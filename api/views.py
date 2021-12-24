@@ -26,15 +26,18 @@ def get_pack_content_list(table, xx_row_list, user_row=None, allow_empty=True):
     for xx_row, xx_contents_row in zip(xx_row_list, xx_contents_row_list):
         ## if user_row is not provided
         if not bool(user_row):
-            user_row = MySQLHandler.fetch(
+            user_row_now = MySQLHandler.fetch(
                 "users",
                 {"id": xx_row["contributor_id"]},
                 allow_empty=False,
             )
+        else:
+            user_row_now = user_row
 
         xx_list.append({
             "id": xx_row["id"],
-            "contributor": user_row["username"],
+            "contributor": user_row_now["username"],
+            "contributorId": user_row_now["id"],
             "title": xx_row["title"],
             "desc": xx_row["description"],
             "titleStep1": xx_contents_row["title"],
@@ -98,6 +101,52 @@ def signup(request):
         "status": status,
         "token": token,
     }]
+
+    return Response(res)
+
+
+@api_view(["GET"])
+def mypage(request, user_id):
+    res = [{
+        "status": True,
+        "token": "",
+    }]
+
+    # try:
+    if True:
+        user_row = MySQLHandler.fetch(
+            "users", {"id": user_id}
+        )
+
+        posted_list = get_pack_content_list(
+            "post_contents",
+            MySQLHandler.fetchall(
+                "posts",
+                {"contributor_id": user_id},
+                allow_empty=True,
+            ),
+            user_row,
+            allow_empty=True,
+        )
+
+        res[0].update({
+            "contents":{
+                "header": {
+                    "email": user_row["email"],
+                    "username": user_row["username"],
+                    "statusMessage": user_row["status_message"],
+                    "hashtagList": user_row["hashtag_list"].split(","),
+                    "followingNum": user_row["following_num"],
+                    "followersNum": user_row["followers_num"],
+                },
+                "postedList": posted_list,
+            }
+        })
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
 
     return Response(res)
 

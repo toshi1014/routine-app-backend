@@ -5,6 +5,7 @@ urlpatterns = [
     path("login/", views.login),
     path("is_unique/", views.is_unique),
     path("signup/", views.signup),
+    path("mypage/<int:user_id>/", views.mypage),
     path("mypage_login/", views.mypage_login),
     path("mypage_login/update_user_info/", views.update_user_info),
     path("mypage_login/get_draft/", views.get_draft),
