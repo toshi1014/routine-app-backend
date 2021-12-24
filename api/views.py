@@ -452,7 +452,10 @@ def search_results(request, keyword, target, page):
             },
         )
 
-        result_row_list = raw_result_row_list[:config.POSTS_PER_PAGE]
+        result_row_list = raw_result_row_list[
+            (page - 1)* config.POSTS_PER_PAGE*page :
+            config.POSTS_PER_PAGE * page
+        ]
 
         result_list = get_pack_content_list(
             "post_contents",
