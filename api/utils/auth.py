@@ -8,14 +8,30 @@ import config
 from .handle_db import MySQLHandler
 
 
-def generate_token(id, email, username):
+def generate_token(id, old_decoded_token=None):
+    user_row = MySQLHandler.fetch("users", {"id": id})
+
+    ## if no old_decoded_token, get follow info from bd
+    if bool(old_decoded_token):
+        following_list = old_decoded_token["followingList"]
+        print(f"\n\treuse\n\t{following_list}\n")
+    else:
+        follow_row_list = MySQLHandler.fetchall(
+            "follows",
+            {"follower_user_id": id},
+            allow_empty=True
+        )
+        following_list = [follow_row["followed_user_id"] for follow_row in follow_row_list]
+        print(f"\n\tnew\n\t{following_list}\n")
+
     timestamp = int(time.time()) + 60*60*24*7       ## expire in 1 weeek
     token = jwt.encode(
         {
             "id": id,
-            "email": email,
-            "username": username,
+            "email": user_row["email"],
+            "username": user_row["username"],
             "exp": timestamp,
+            "followingList": following_list
         },
         config.SECRET_KEY,
         algorithm="HS256"
@@ -38,13 +54,13 @@ class Login(BaseAuthentication):
         else:
             row = MySQLHandler.fetch("users", {"email": email})
             id, username = row["id"], row["username"]
-            token = generate_token(id, email=email, username=username)
+            token = generate_token(id)
             print("\n\tlogin successfully\n")
 
         return (token, None)
 
 
-def is_authenticated(request):
+def is_authenticated(request, clear_cache=False):
     token = request.data['token']
     bool_authenticated = True
     id = None
@@ -59,7 +75,11 @@ def is_authenticated(request):
         email = decoded_token.get("email")
         username = decoded_token.get("username")
         exp = decoded_token.get("exp")
-        new_token = generate_token(id, email, username)
+
+        if clear_cache:
+            new_token = generate_token(id)
+        else:
+            new_token = generate_token(id, old_decoded_token=decoded_token)
 
         if int(exp) < int(time.time()):
             bool_authenticated = False

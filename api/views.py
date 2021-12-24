@@ -89,7 +89,7 @@ def signup(request):
         user = authenticate(request, username=email, password=password)
         MySQLHandler.insert("users", {"email": email, "username": username})
         id = MySQLHandler.fetch("users", {"email": email})["id"]
-        token = generate_token(id, email, username)
+        token = generate_token(id)
         status = True
         print("created successfully")
     except Exception as e:
@@ -227,7 +227,7 @@ def update_user_info(request):
             column = request.data["column"]
             val = request.data["val"]
             id = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})["id"]
-            MySQLHandler.update("users", key="id", val=id, dict_update_column_val={column: val})
+            MySQLHandler.update("users", {"id": id}, dict_update_column_val={column: val})
 
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
@@ -523,6 +523,122 @@ def search_results(request, keyword, target, page):
                 },
             }
         )
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def follow(request):
+    dict_is_authenticated = is_authenticated(request)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    # try:
+    if True:
+        if dict_is_authenticated["bool_authenticated"]:
+            target_user_id = request.data["targetUserId"]
+
+            MySQLHandler.insert(
+                "follows",
+                {
+                    "followed_user_id": target_user_id,
+                    "follower_user_id": dict_is_authenticated["id"]
+                }
+            )
+
+            ## update followed one's row
+            target_user_row = MySQLHandler.fetch("users", {"id": target_user_id})
+            MySQLHandler.update(
+                "users",
+                {"id": target_user_id},
+                dict_update_column_val={
+                    "followers_num": target_user_row["followers_num"] + 1
+                }
+            )
+
+            ## update following one's row
+            user_row = MySQLHandler.fetch("users", {"id": dict_is_authenticated["id"]})
+
+            MySQLHandler.update(
+                "users",
+                {"id": dict_is_authenticated["id"]},
+                dict_update_column_val={
+                    "following_num": user_row["following_num"] + 1
+                }
+            )
+
+            ## generate new token with updated rows
+            dict_is_authenticated = is_authenticated(request, clear_cache=True)
+            res[0].update({"token": dict_is_authenticated["new_token"]})
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def unfollow(request):
+    dict_is_authenticated = is_authenticated(request, clear_cache=True)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    # try:
+    if True:
+        if dict_is_authenticated["bool_authenticated"]:
+            target_user_id = request.data["targetUserId"]
+
+            MySQLHandler.delete(
+                "follows",
+                {
+                    "followed_user_id": target_user_id,
+                    "follower_user_id": dict_is_authenticated["id"]
+                }
+            )
+
+            ## update followed one's row
+            target_user_row = MySQLHandler.fetch("users", {"id": target_user_id})
+            MySQLHandler.update(
+                "users",
+                {"id": target_user_id},
+                dict_update_column_val={
+                    "followers_num": target_user_row["followers_num"] - 1
+                }
+            )
+
+            ## update following one's row
+            user_row = MySQLHandler.fetch("users", {"id": dict_is_authenticated["id"]})
+
+            MySQLHandler.update(
+                "users",
+                {"id": dict_is_authenticated["id"]},
+                dict_update_column_val={
+                    "following_num": user_row["following_num"] - 1
+                }
+            )
+
+            ## generate new token with updated rows
+            dict_is_authenticated = is_authenticated(request, clear_cache=True)
+            res[0].update({"token": dict_is_authenticated["new_token"]})
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
     # except Exception as e:
     else:
         print("\n\tErr:", e, "\n")

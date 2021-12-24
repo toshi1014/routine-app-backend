@@ -95,12 +95,17 @@ class MySQLHandler():
         # return row_list
 
     @classmethod
-    def delete(cls, table_name, key, val):
-        if isinstance(val, int):
-            val_sql = str(val)
-        else:
-            val_sql = f"'{val}'"
-        cmd = f"DELETE FROM {table_name} WHERE {key}={val_sql};"
+    def delete(cls, table_name, key_val_dict):
+        str_conditions = ""
+        for key in key_val_dict:
+            if isinstance(key_val_dict[key], int):
+                str_conditions += f"{key}=" + str(key_val_dict[key]) + " AND "
+            else:
+                str_conditions += f"{key} = '{key_val_dict[key]}' AND "
+
+        str_conditions = str_conditions[:-5]    ## remove last " AND "
+
+        cmd = f"DELETE FROM {table_name} WHERE {str_conditions};"
         print("\n\t", cmd, "\n")
         cursor.execute(cmd)
         db.commit()

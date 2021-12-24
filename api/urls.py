@@ -10,6 +10,8 @@ urlpatterns = [
     path("mypage_login/update_user_info/", views.update_user_info),
     path("mypage_login/get_draft/", views.get_draft),
     path("mypage_login/delete_post_or_draft/", views.delete_post_or_draft),
+    path("mypage_login/follow/", views.follow),
+    path("mypage_login/unfollow/", views.unfollow),
     path("post_or_draft/", views.post_or_draft),
     path("contents/<int:post_id>/", views.get_contents),
     path("search_results/<str:keyword>/<str:target>/<int:page>/", views.search_results),
