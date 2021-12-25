@@ -376,6 +376,7 @@ def get_contents(request, post_id):
                         "hashtagList": post_row["hashtag_list"].split(","),
                         "like": post_row["like_num"],
                         "contributor": user_row["username"],
+                        "contributorId": user_row["id"],
                         "lastUpdated": post_row["last_updated"],
                     },
                     "elementList": element_list,
@@ -532,6 +533,36 @@ def search_results(request, keyword, target, page):
     return Response(res)
 
 
+def follow_base(user_id, target_user_id, follow_or_unfollow):
+    if follow_or_unfollow == "follow":
+        diff = 1
+    elif follow_or_unfollow == "unfollow":
+        diff = -1
+    else:
+        raise ValueError(f"unknown follow_or_unfollow {follow_or_unfollow}")
+
+    ## update followed one's row
+    target_user_row = MySQLHandler.fetch("users", {"id": target_user_id})
+    MySQLHandler.update(
+        "users",
+        {"id": target_user_id},
+        dict_update_column_val={
+            "followers_num": target_user_row["followers_num"] + diff
+        }
+    )
+
+    ## update following one's row
+    user_row = MySQLHandler.fetch("users", {"id": user_id})
+
+    MySQLHandler.update(
+        "users",
+        {"id": user_id},
+        dict_update_column_val={
+            "following_num": user_row["following_num"] + diff
+        }
+    )
+
+
 @api_view(["POST"])
 def follow(request):
     dict_is_authenticated = is_authenticated(request)
@@ -553,26 +584,8 @@ def follow(request):
                 }
             )
 
-            ## update followed one's row
-            target_user_row = MySQLHandler.fetch("users", {"id": target_user_id})
-            MySQLHandler.update(
-                "users",
-                {"id": target_user_id},
-                dict_update_column_val={
-                    "followers_num": target_user_row["followers_num"] + 1
-                }
-            )
+            follow_base(dict_is_authenticated["id"], target_user_id, "follow")
 
-            ## update following one's row
-            user_row = MySQLHandler.fetch("users", {"id": dict_is_authenticated["id"]})
-
-            MySQLHandler.update(
-                "users",
-                {"id": dict_is_authenticated["id"]},
-                dict_update_column_val={
-                    "following_num": user_row["following_num"] + 1
-                }
-            )
 
             ## generate new token with updated rows
             dict_is_authenticated = is_authenticated(request, clear_cache=True)
@@ -611,26 +624,7 @@ def unfollow(request):
                 }
             )
 
-            ## update followed one's row
-            target_user_row = MySQLHandler.fetch("users", {"id": target_user_id})
-            MySQLHandler.update(
-                "users",
-                {"id": target_user_id},
-                dict_update_column_val={
-                    "followers_num": target_user_row["followers_num"] - 1
-                }
-            )
-
-            ## update following one's row
-            user_row = MySQLHandler.fetch("users", {"id": dict_is_authenticated["id"]})
-
-            MySQLHandler.update(
-                "users",
-                {"id": dict_is_authenticated["id"]},
-                dict_update_column_val={
-                    "following_num": user_row["following_num"] - 1
-                }
-            )
+            follow_base(dict_is_authenticated["id"], target_user_id, "unfollow")
 
             ## generate new token with updated rows
             dict_is_authenticated = is_authenticated(request, clear_cache=True)
