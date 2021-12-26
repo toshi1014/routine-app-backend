@@ -105,6 +105,18 @@ def signup(request):
     return Response(res)
 
 
+def get_mypage_header(user_row):
+    header = {
+        "email": user_row["email"],
+        "username": user_row["username"],
+        "statusMessage": user_row["status_message"],
+        "hashtagList": user_row["hashtag_list"].split(","),
+        "followingNum": user_row["following_num"],
+        "followersNum": user_row["followers_num"],
+    }
+    return header;
+
+
 @api_view(["GET"])
 def mypage(request, user_id):
     res = [{
@@ -131,14 +143,7 @@ def mypage(request, user_id):
 
         res[0].update({
             "contents":{
-                "header": {
-                    "email": user_row["email"],
-                    "username": user_row["username"],
-                    "statusMessage": user_row["status_message"],
-                    "hashtagList": user_row["hashtag_list"].split(","),
-                    "followingNum": user_row["following_num"],
-                    "followersNum": user_row["followers_num"],
-                },
+                "header": get_mypage_header(user_row),
                 "postedList": posted_list,
             }
         })
@@ -191,14 +196,7 @@ def mypage_login(request):
 
             res[0].update({
                 "contents":{
-                    "header": {
-                        "email": user_row["email"],
-                        "username": user_row["username"],
-                        "statusMessage": user_row["status_message"],
-                        "hashtagList": user_row["hashtag_list"].split(","),
-                        "followingNum": user_row["following_num"],
-                        "followersNum": user_row["followers_num"],
-                    },
+                    "header": get_mypage_header(user_row),
                     "postedList": posted_list,
                     "draftList": draft_list,
                 }
@@ -633,6 +631,48 @@ def unfollow(request):
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
 
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["GET"])
+def get_following_or_followers(request, user_id, following_or_follwers):
+    res = [{
+        "status": True,
+        "token": "",
+    }]
+
+    # try:
+    if True:
+        if following_or_follwers == "following":
+            search_column = "follower_user_id"
+            target_column = "followed_user_id"
+        elif following_or_follwers == "followers":
+            search_column = "followed_user_id"
+            target_column = "follower_user_id"
+        else:
+            raise Exception("unknown val")
+
+        user_list = [
+            {
+                "username": MySQLHandler.fetch("users", {"id": row[target_column]})["username"],
+                "userId": row[target_column],
+            }
+            for row in MySQLHandler.fetchall(
+                "follows",
+                {search_column: user_id},
+            )
+        ]
+
+        res[0].update({
+            "contents": user_list,
+            }
+        )
     # except Exception as e:
     else:
         print("\n\tErr:", e, "\n")
