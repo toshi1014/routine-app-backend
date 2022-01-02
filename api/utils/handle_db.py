@@ -33,7 +33,7 @@ class MySQLHandler():
         db.commit()
         return cursor.lastrowid
 
-    def change_into_dict(cls, table_name, row_list):
+    def change_into_dict(table_name, row_list):
         dict_row_list = []
         for row in row_list:
             dict_row = {}
@@ -42,7 +42,7 @@ class MySQLHandler():
             dict_row_list.append(dict_row)
         return dict_row_list
 
-    def fetch_base(cls, table_name, key_val_dict):
+    def join_with_AND(key_val_dict):
         str_conditions = ""
         for key in key_val_dict:
             if isinstance(key_val_dict[key], int):
@@ -50,13 +50,15 @@ class MySQLHandler():
             else:
                 str_conditions += f"{key} = '{key_val_dict[key]}' AND "
 
-        str_conditions = str_conditions[:-5]    ## remove last " AND "
+        return str_conditions[:-5]    ## remove last " AND "
 
+    def fetch_base(cls, table_name, key_val_dict):
+        str_conditions = cls.join_with_AND(key_val_dict)
         cmd = f"SELECT * FROM {table_name} WHERE {str_conditions};"
         print("\n\t", cmd, "\n")
         cursor.execute(cmd)
         row_list = cursor.fetchall()
-        return cls.change_into_dict(cls, table_name, row_list)
+        return cls.change_into_dict(table_name, row_list)
 
     @classmethod
     def fetch(cls, table_name, key_val_dict, allow_empty=False):
@@ -94,17 +96,10 @@ class MySQLHandler():
         #
         # return row_list
 
+
     @classmethod
     def delete(cls, table_name, key_val_dict):
-        str_conditions = ""
-        for key in key_val_dict:
-            if isinstance(key_val_dict[key], int):
-                str_conditions += f"{key}=" + str(key_val_dict[key]) + " AND "
-            else:
-                str_conditions += f"{key} = '{key_val_dict[key]}' AND "
-
-        str_conditions = str_conditions[:-5]    ## remove last " AND "
-
+        str_conditions = cls.join_with_AND(key_val_dict)
         cmd = f"DELETE FROM {table_name} WHERE {str_conditions};"
         print("\n\t", cmd, "\n")
         cursor.execute(cmd)
@@ -117,15 +112,7 @@ class MySQLHandler():
                 for column in dict_update_column_val
         ])
 
-        str_conditions = ""
-        for key in key_val_dict:
-            if isinstance(key_val_dict[key], int):
-                str_conditions += f"{key}=" + str(key_val_dict[key]) + " AND "
-            else:
-                str_conditions += f"{key} = '{key_val_dict[key]}' AND "
-
-        str_conditions = str_conditions[:-5]    ## remove last " AND "
-
+        str_conditions = cls.join_with_AND(key_val_dict)
         cmd = f"UPDATE {table_name} SET {str_column_val} WHERE {str_conditions};"
         print("\n\t", cmd, "\n")
         cursor.execute(cmd)
@@ -150,7 +137,7 @@ class MySQLHandler():
             print("\n\t", cmd, "\n")
             cursor.execute(cmd)
             row_list = cursor.fetchall()
-            row_dict_list = cls.change_into_dict(cls, table, row_list)
+            row_dict_list = cls.change_into_dict(table, row_list)
 
             ## if xx_contents, check not to append duplicate post
             if table[-8:] == "contents":

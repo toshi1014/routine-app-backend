@@ -85,6 +85,8 @@ def is_authenticated(request, clear_cache=False):
     id = None
     email = None
     username = None
+    like_list = None
+    favorite_list = None
     reason = None
     new_token = None
 

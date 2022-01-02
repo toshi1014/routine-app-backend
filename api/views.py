@@ -9,6 +9,45 @@ from .utils.handle_db import MySQLHandler
 import config
 
 
+def basic_response(*deco_args, **deco_kwargs):
+    def _basic_response(func):
+        @api_view(["GET", "POST", "PUT", "DELETE"])
+        def wrapper(*args, **kwargs):
+            res = {
+                "status": True,
+                "token": "",
+            }
+
+            # try:
+            if True:        # DEBUG:
+                if deco_kwargs["login_required"]:
+                    is_authenticated_dict = is_authenticated(args[0]) ## args[0] == request
+
+                    res["status"] = is_authenticated_dict["bool_authenticated"]
+                    res["token"] = is_authenticated_dict["new_token"]
+
+                    if is_authenticated_dict["bool_authenticated"]:
+                        res.update({
+                            "contents": func(
+                                *args, **kwargs, is_authenticated_dict=is_authenticated_dict
+                            ),
+                        })
+                    else:
+                        res.update({"errorMessage": is_authenticated_dict["reason"]})
+                else:
+                    res.update({"contents": func(*args, **kwargs)})
+
+            # except Exception as e:
+            else:
+                print("\n\tErr:", e, "\n")
+                res["status"] = False
+                res.update({"errorMessage": "backend error"})
+
+            return Response([res])
+        return wrapper
+    return _basic_response
+
+
 def get_pack_content_list(table, xx_row_list, user_row=None, allow_empty=True):
     xx_list = []
 
@@ -64,19 +103,16 @@ def login(request):
     return Response(res)
 
 
-@api_view(["POST"])
+@basic_response(login_required=False)
 def is_unique(request):
     column, val = request.data["column"], request.data["val"]
 
     # TODO: check whether unique
-    res = [{
-        "status": False,
-    }]
-
-    return Response(res)
+    bool_unique = False
+    return  { "boolUnique": bool_unique }
 
 
-@api_view(["POST"])
+@basic_response(login_required=False)
 def signup(request):
     email, password, username = \
         request.data["email"], request.data["password"], request.data["username"]
@@ -84,25 +120,16 @@ def signup(request):
     print("\tparams")
     print("\n\t", email, password, username)
 
-    try:
-        user = User.objects.create_user(username=email, password=password)
-        user = authenticate(request, username=email, password=password)
-        MySQLHandler.insert("users", {"email": email, "username": username})
-        id = MySQLHandler.fetch("users", {"email": email})["id"]
-        token = generate_token(id)
-        status = True
-        print("created successfully")
-    except Exception as e:
-        print("\n\tErr:", e, "\n")
-        status = False
-        token = None
+    user = User.objects.create_user(username=email, password=password)
+    user = authenticate(request, username=email, password=password)
+    MySQLHandler.insert("users", {"email": email, "username": username})
+    id = MySQLHandler.fetch("users", {"email": email})["id"]
+    token = generate_token(id)
+    print("created successfully")
 
-    res = [{
-        "status": status,
-        "token": token,
-    }]
-
-    return Response(res)
+    return {
+        "newToken": token,
+    }
 
 
 def get_mypage_header(user_row):
@@ -117,461 +144,311 @@ def get_mypage_header(user_row):
     return header;
 
 
-@api_view(["GET"])
-def mypage(request, user_id):
-    res = [{
-        "status": True,
-        "token": "",
-    }]
+def get_posted_list(user_row):
+    return get_pack_content_list(
+        "post_contents",
+        MySQLHandler.fetchall(
+            "posts",
+            {"contributor_id": user_row["id"]},
+            allow_empty=True,
+        ),
+        user_row,
+        allow_empty=True,
+    )
 
-    # try:
-    if True:
-        user_row = MySQLHandler.fetch(
-            "users", {"id": user_id}
-        )
 
-        posted_list = get_pack_content_list(
+def get_favorite_list(user_row):
+    favorite_post_id_list = MySQLHandler.fetchall(
+        "favorites",
+        {"user_id": user_row["id"]},
+        allow_empty=True,
+    )
+    favorite_list = []
+    for favorite_post_id in favorite_post_id_list:
+        favorite_list += get_pack_content_list(
             "post_contents",
             MySQLHandler.fetchall(
                 "posts",
-                {"contributor_id": user_id},
-                allow_empty=True,
+                {"id": favorite_post_id["post_id"]},
             ),
-            user_row,
             allow_empty=True,
         )
 
-        favorite_post_id_list = MySQLHandler.fetchall(
-            "favorites",
-            {"user_id": user_id},
+    return favorite_list
+
+def get_draft_list(user_row):
+    return get_pack_content_list(
+        "draft_contents",
+        MySQLHandler.fetchall(
+            "drafts",
+            {"contributor_id": user_row["id"]},
             allow_empty=True,
-        )
-        favorite_list = []
-        for favorite_post_id in favorite_post_id_list:
-            favorite_list += get_pack_content_list(
-                "post_contents",
-                MySQLHandler.fetchall(
-                    "posts",
-                    {"id": favorite_post_id["post_id"]},
-                ),
-                allow_empty=True,
-            )
-
-        res[0].update({
-            "contents":{
-                "header": get_mypage_header(user_row),
-                "postedList": posted_list,
-                "favoriteList": favorite_list,
-            }
-        })
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+        ),
+        user_row,
+        allow_empty=True,
+    )
 
 
-@api_view(["POST"])
-def mypage_login(request):
-    dict_is_authenticated = is_authenticated(request)
+@basic_response(login_required=False)
+def mypage(request, user_id):
+    user_row = MySQLHandler.fetch(
+        "users", {"id": user_id}
+    )
 
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
-
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            user_row = MySQLHandler.fetch(
-                "users", {"email": dict_is_authenticated["email"]}
-            )
-
-            posted_list = get_pack_content_list(
-                "post_contents",
-                MySQLHandler.fetchall(
-                    "posts",
-                    {"contributor_id": dict_is_authenticated["id"]},
-                    allow_empty=True,
-                ),
-                user_row,
-                allow_empty=True,
-            )
-
-            favorite_post_id_list = MySQLHandler.fetchall(
-                "favorites",
-                {"user_id": dict_is_authenticated["id"]},
-                allow_empty=True,
-            )
-            favorite_list = []
-            for favorite_post_id in favorite_post_id_list:
-                favorite_list += get_pack_content_list(
-                    "post_contents",
-                    MySQLHandler.fetchall(
-                        "posts",
-                        {"id": favorite_post_id["post_id"]},
-                    ),
-                    allow_empty=True,
-                )
-
-            draft_list = get_pack_content_list(
-                "draft_contents",
-                MySQLHandler.fetchall(
-                    "drafts",
-                    {"contributor_id": dict_is_authenticated["id"]},
-                    allow_empty=True,
-                ),
-                user_row,
-                allow_empty=True,
-            )
-
-            res[0].update({
-                "contents":{
-                    "header": get_mypage_header(user_row),
-                    "postedList": posted_list,
-                    "favoriteList": favorite_list,
-                    "draftList": draft_list,
-                }
-            })
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+    return {
+        "header": get_mypage_header(user_row),
+        "postedList": get_posted_list(user_row),
+        "favoriteList": get_favorite_list(user_row),
+    }
 
 
-@api_view(["PUT"])
-def update_user_info(request):
-    dict_is_authenticated = is_authenticated(request)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
+@basic_response(login_required=True)
+def mypage_login(request, is_authenticated_dict):
+    user_row = MySQLHandler.fetch(
+        "users", {"id": is_authenticated_dict["id"]}
+    )
 
-    try:
-        if dict_is_authenticated["bool_authenticated"]:
-            column = request.data["column"]
-            val = request.data["val"]
-            id = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})["id"]
-            MySQLHandler.update("users", {"id": id}, dict_update_column_val={column: val})
-
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    except Exception as e:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+    return {
+        "header": get_mypage_header(user_row),
+        "postedList": get_posted_list(user_row),
+        "favoriteList": get_favorite_list(user_row),
+        "draftList": get_draft_list(user_row),
+    }
 
 
-@api_view(["POST"])
-def post_or_draft(request):
-    dict_is_authenticated = is_authenticated(request)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
+@basic_response(login_required=True)
+def update_user_info(request, is_authenticated_dict):
+    column = request.data["column"]
+    val = request.data["val"]
+    MySQLHandler.update(
+        "users",
+        { "id": is_authenticated_dict["id"]},
+        dict_update_column_val={column: val}
+    )
 
+    return {}
+
+
+@basic_response(login_required=True)
+def post_or_draft(request, is_authenticated_dict):
     print("\n\t", request.data, "\n")
+    post_or_draft = request.data["postOrDraft"]
+    post_id = request.data["postId"]    ## None or int
+    bool_edited_draft = request.data["boolEditedDraft"]
+    title = request.data["title"]
+    desc = request.data["desc"]
+    hashtag_list = request.data["hashtagLabelList"]
+    routine_element_list = request.data["routineElements"]
 
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            post_or_draft = request.data["postOrDraft"]
-            post_id = request.data["postId"]    ## None or int
-            bool_edited_draft = request.data["boolEditedDraft"]
-            title = request.data["title"]
-            desc = request.data["desc"]
-            hashtag_list = request.data["hashtagLabelList"]
-            routine_element_list = request.data["routineElements"]
+    bool_draft2post = bool_edited_draft & (post_or_draft == "post")
+    bool_post2draft = (not bool_edited_draft) & (post_or_draft == "draft") & bool(post_id)
 
-            bool_draft2post = bool_edited_draft & (post_or_draft == "post")
-            bool_post2draft = (not bool_edited_draft) & (post_or_draft == "draft") & bool(post_id)
-
-            if post_or_draft == "post":
-                title_table = "posts"
-                contents_table = "post_contents"
-            elif post_or_draft == "draft":
-                title_table = "drafts"
-                contents_table = "draft_contents"
-            else:
-                raise Exception(f"unknown post_or_draft {post_or_draft}")
-
-
-            user_id = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})["id"]
-            contents_title = {
-                "contributor_id": user_id,
-                "title": title,
-                "description": desc,
-                "last_updated": str(datetime.datetime.now())[:-7],
-                "hashtag_list": ",".join(hashtag_list),
-            }
-
-
-            ## if just update & not draft2post & not post2draft
-            if bool(post_id) & (not bool_draft2post) & (not bool_post2draft):
-                MySQLHandler.update(
-                    title_table, {"id": post_id}, contents_title
-                )
-                for idx, routine_element in enumerate(routine_element_list):
-                    MySQLHandler.update(
-                        contents_table,
-                        {"post_id": post_id, "step_num": idx+1},
-                        {
-                            "title": routine_element["title"],
-                            "subtitle": routine_element["subtitle"],
-                            "description": routine_element["desc"],
-                        }
-                    )
-
-            ## if new post
-            else:
-                lastrowid = MySQLHandler.insert(
-                    title_table, contents_title
-                )
-
-                for idx, routine_element in enumerate(routine_element_list):
-                    MySQLHandler.insert(
-                        contents_table,
-                        {
-                            "post_id": lastrowid,
-                            "step_num": idx + 1,        ## idx to order
-                            "title": routine_element["title"],
-                            "subtitle": routine_element["subtitle"],
-                            "description": routine_element["desc"],
-                        }
-                    )
-
-                if bool_draft2post:
-                    ## delete draft
-                    MySQLHandler.delete("drafts", "id", post_id)
-                    MySQLHandler.delete("draft_contents", "post_id", post_id)
-                elif bool_post2draft:
-                    MySQLHandler.delete("posts", "id", post_id)
-                    MySQLHandler.delete("post_contents", "post_id", post_id)
-
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    # except Exception as e:
+    if post_or_draft == "post":
+        title_table = "posts"
+        contents_table = "post_contents"
+    elif post_or_draft == "draft":
+        title_table = "drafts"
+        contents_table = "draft_contents"
     else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+        raise Exception(f"unknown post_or_draft {post_or_draft}")
 
 
-@api_view(["GET"])
+    contents_title = {
+        "contributor_id": is_authenticated_dict["id"],
+        "title": title,
+        "description": desc,
+        "last_updated": str(datetime.datetime.now())[:-7],
+        "hashtag_list": ",".join(hashtag_list),
+    }
+
+
+    ## if just update & not draft2post & not post2draft
+    if bool(post_id) & (not bool_draft2post) & (not bool_post2draft):
+        MySQLHandler.update(
+            title_table, {"id": post_id}, contents_title
+        )
+        for idx, routine_element in enumerate(routine_element_list):
+            MySQLHandler.update(
+                contents_table,
+                {"post_id": post_id, "step_num": idx+1},
+                {
+                    "title": routine_element["title"],
+                    "subtitle": routine_element["subtitle"],
+                    "description": routine_element["desc"],
+                }
+            )
+
+    ## if new post
+    else:
+        lastrowid = MySQLHandler.insert(
+            title_table, contents_title
+        )
+
+        for idx, routine_element in enumerate(routine_element_list):
+            MySQLHandler.insert(
+                contents_table,
+                {
+                    "post_id": lastrowid,
+                    "step_num": idx + 1,        ## idx to order
+                    "title": routine_element["title"],
+                    "subtitle": routine_element["subtitle"],
+                    "description": routine_element["desc"],
+                }
+            )
+
+        if bool_draft2post:
+            ## delete draft
+            MySQLHandler.delete("drafts", {"id": post_id})
+            MySQLHandler.delete("draft_contents", {"post_id": post_id})
+        elif bool_post2draft:
+            MySQLHandler.delete("posts", {"id": post_id})
+            MySQLHandler.delete("post_contents", {"post_id": post_id})
+
+    return {}
+
+
+@basic_response(login_required=False)
 def get_contents(request, post_id):
-    res = [{
-        "status": True,
-        "token": "",
-    }]
-
     print("\n\t", post_id, "\n")
 
-    # try:
-    if True:
-        post_row = MySQLHandler.fetch("posts", {"id": post_id})
-        user_row = MySQLHandler.fetch("users", {"id": post_row["contributor_id"]})
+    post_row = MySQLHandler.fetch("posts", {"id": post_id})
+    user_row = MySQLHandler.fetch("users", {"id": post_row["contributor_id"]})
 
-        raw_post_contents_row_list = MySQLHandler.fetchall(
-            "post_contents", {"post_id": post_row["id"]},
-        )
+    raw_post_contents_row_list = MySQLHandler.fetchall(
+        "post_contents", {"post_id": post_row["id"]},
+    )
 
-        element_list = []
+    element_list = []
 
-        post_contents_row_list = sorted(raw_post_contents_row_list, key=lambda kv: kv["step_num"])
+    post_contents_row_list = sorted(raw_post_contents_row_list, key=lambda kv: kv["step_num"])
 
-        for post_contents_row in post_contents_row_list:
-            element_list.append({
-                "title": post_contents_row["title"],
-                "subtitle": post_contents_row["subtitle"],
-                "desc": post_contents_row["description"],
-                "imagePath": "logo192.png",     # TEMP: image path
-            })
+    for post_contents_row in post_contents_row_list:
+        element_list.append({
+            "title": post_contents_row["title"],
+            "subtitle": post_contents_row["subtitle"],
+            "desc": post_contents_row["description"],
+            "imagePath": "logo192.png",     # TEMP: image path
+        })
 
-        res[0].update({
-            "contents":{
-                    "header": {
-                        "title": post_row["title"],
-                        "desc": post_row["description"],
-                        "hashtagList": post_row["hashtag_list"].split(","),
-                        "like": post_row["like_num"],
-                        "contributor": user_row["username"],
-                        "contributorId": user_row["id"],
-                        "lastUpdated": post_row["last_updated"],
-                    },
-                    "elementList": element_list,
-                },
-            }
-        )
+    return {
+        "header": {
+            "title": post_row["title"],
+            "desc": post_row["description"],
+            "hashtagList": post_row["hashtag_list"].split(","),
+            "like": post_row["like_num"],
+            "contributor": user_row["username"],
+            "contributorId": user_row["id"],
+            "lastUpdated": post_row["last_updated"],
+        },
+        "elementList": element_list,
+    }
 
-    # except Exception as e:
+
+@basic_response(login_required=True)
+def get_draft(request, is_authenticated_dict):
+    draft_id = request.data["id"]
+    user_row = MySQLHandler.fetch("users", {"id": is_authenticated_dict["id"]})
+    draft_row = MySQLHandler.fetch("drafts", {"id": draft_id, "contributor_id": user_row["id"]})
+
+    raw_draft_contents_row_list = MySQLHandler.fetchall(
+        "draft_contents", {"post_id": draft_row["id"]},
+    )
+
+    element_list = []
+
+    draft_contents_row_list = sorted(raw_draft_contents_row_list, key=lambda kv: kv["step_num"])
+
+    for draft_contents_row in draft_contents_row_list:
+        element_list.append({
+            "title": draft_contents_row["title"],
+            "subtitle": draft_contents_row["subtitle"],
+            "desc": draft_contents_row["description"],
+            "imagePath": "logo192.png",     # TEMP: image path
+        })
+
+    return {
+        "header": {
+            "title": draft_row["title"],
+            "desc": draft_row["description"],
+            "hashtagList": draft_row["hashtag_list"].split(","),
+            "like": draft_row["like_num"],
+            "contributor": user_row["username"],
+            "lastUpdated": draft_row["last_updated"],
+        },
+        "elementList": element_list,
+    }
+
+
+@basic_response(login_required=True)
+def delete_post_or_draft(request, is_authenticated_dict):
+    postOrDraft = request.data["postOrDraft"]
+    id = request.data["id"]
+
+    print("\n\tid:", id, "\n")
+
+    if postOrDraft == "post":
+        MySQLHandler.delete("posts", {"id": id})
+        MySQLHandler.delete("post_contents", {"post_id": id})
+    elif postOrDraft == "draft":
+        MySQLHandler.delete("drafts", {"id": id})
+        MySQLHandler.delete("draft_contents", {"post_id": id})
     else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
+        raise ValueError(f"unknown value {postOrDraft}")
 
-    return Response(res)
+    return {}
 
 
-@api_view(["POST"])
-def get_draft(request):
-    dict_is_authenticated = is_authenticated(request)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
-
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            draft_id = request.data["id"]
-            user_row = MySQLHandler.fetch("users", {"email": dict_is_authenticated["email"]})
-            draft_row = MySQLHandler.fetch("drafts", {"id": draft_id, "contributor_id": user_row["id"]})
-
-            raw_draft_contents_row_list = MySQLHandler.fetchall(
-                "draft_contents", {"post_id": draft_row["id"]},
-            )
-
-            element_list = []
-
-            draft_contents_row_list = sorted(raw_draft_contents_row_list, key=lambda kv: kv["step_num"])
-
-            for draft_contents_row in draft_contents_row_list:
-                element_list.append({
-                    "title": draft_contents_row["title"],
-                    "subtitle": draft_contents_row["subtitle"],
-                    "desc": draft_contents_row["description"],
-                    "imagePath": "logo192.png",     # TEMP: image path
-                })
-
-            res[0].update({
-                "contents":{
-                        "header": {
-                            "title": draft_row["title"],
-                            "desc": draft_row["description"],
-                            "hashtagList": draft_row["hashtag_list"].split(","),
-                            "like": draft_row["like_num"],
-                            "contributor": user_row["username"],
-                            "lastUpdated": draft_row["last_updated"],
-                        },
-                        "elementList": element_list,
-                    },
-                }
-            )
-
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
-
-
-@api_view(["POST"])
-def delete_post_or_draft(request):
-    dict_is_authenticated = is_authenticated(request)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
-
-    try:
-        if dict_is_authenticated["bool_authenticated"]:
-            postOrDraft = request.data["postOrDraft"]
-            id = request.data["id"]
-
-            if postOrDraft == "post":
-                MySQLHandler.delete("posts", "id", id)
-                MySQLHandler.delete("post_contents", "post_id", id)
-            elif postOrDraft == "draft":
-                MySQLHandler.delete("drafts", "id", id)
-                MySQLHandler.delete("draft_contents", "post_id", id)
-            else:
-                raise ValueError(f"unknown value {postOrDraft}")
-
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    except Exception as e:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
-
-
-@api_view(["GET"])
+@basic_response(login_required=False)
 def search_results(request, keyword, target, page):
-    res = [{
-        "status": True,
-        "token": "",
-    }]
+    # COMBAK: use target
+    raw_result_row_list = MySQLHandler.search(
+        keyword,
+        {
+            "posts": ["title", "description"],
+            "post_contents": ["title", "subtitle", "description"]
+        },
+    )
 
-    # try:
-    if True:
-        # COMBAK: use target
-        raw_result_row_list = MySQLHandler.search(
-            keyword,
-            {
-                "posts": ["title", "description"],
-                "post_contents": ["title", "subtitle", "description"]
-            },
-        )
+    result_row_list = raw_result_row_list[
+        (page - 1)* config.POSTS_PER_PAGE*page :
+        config.POSTS_PER_PAGE * page
+    ]
 
-        result_row_list = raw_result_row_list[
-            (page - 1)* config.POSTS_PER_PAGE*page :
-            config.POSTS_PER_PAGE * page
-        ]
+    result_list = get_pack_content_list(
+        "post_contents",
+        result_row_list,
+        allow_empty=True,
+    )
 
-        result_list = get_pack_content_list(
-            "post_contents",
-            result_row_list,
-            allow_empty=True,
-        )
+    page_length = len(raw_result_row_list)//config.POSTS_PER_PAGE
+    if page_length == 0:
+        page_length = 1
 
-        page_length = len(raw_result_row_list)//config.POSTS_PER_PAGE
-        if page_length == 0:
-            page_length = 1
-
-        res[0].update({
-            "contents":{
-                    "resultList": result_list,
-                    "pageLength": page_length,
-                },
-            }
-        )
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+    return {
+        "resultList": result_list,
+        "pageLength": page_length,
+    }
 
 
-def follow_base(user_id, target_user_id, follow_or_unfollow):
+def follow_base(request, user_id, follow_or_unfollow):
+    target_user_id = request.data["targetUserId"]
+
     if follow_or_unfollow == "follow":
+        pfunc = MySQLHandler.insert
         diff = 1
     elif follow_or_unfollow == "unfollow":
+        pfunc = MySQLHandler.delete
         diff = -1
     else:
         raise ValueError(f"unknown follow_or_unfollow {follow_or_unfollow}")
+
+    pfunc(
+        "follows",
+        {
+            "followed_user_id": target_user_id,
+            "follower_user_id": user_id,
+        }
+    )
 
     ## update followed one's row
     target_user_row = MySQLHandler.fetch("users", {"id": target_user_id})
@@ -594,135 +471,74 @@ def follow_base(user_id, target_user_id, follow_or_unfollow):
         }
     )
 
-
-@api_view(["POST"])
-def follow(request):
-    dict_is_authenticated = is_authenticated(request)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
-
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            target_user_id = request.data["targetUserId"]
-
-            MySQLHandler.insert(
-                "follows",
-                {
-                    "followed_user_id": target_user_id,
-                    "follower_user_id": dict_is_authenticated["id"]
-                }
-            )
-
-            follow_base(dict_is_authenticated["id"], target_user_id, "follow")
+    ## generate new token with updated rows
+    return is_authenticated(request, clear_cache=True)
 
 
-            ## generate new token with updated rows
-            dict_is_authenticated = is_authenticated(request, clear_cache=True)
-            res[0].update({"token": dict_is_authenticated["new_token"]})
+@basic_response(login_required=True)
+def follow(request, is_authenticated_dict):
+    is_authenticated_dict = follow_base(request, is_authenticated_dict["id"], "follow")
 
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+    return {
+        "newToken": is_authenticated_dict["new_token"]
+    }
 
 
-@api_view(["POST"])
-def unfollow(request):
-    dict_is_authenticated = is_authenticated(request, clear_cache=True)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
+@basic_response(login_required=True)
+def unfollow(request, is_authenticated_dict):
+    is_authenticated_dict = follow_base(request, is_authenticated_dict["id"], "unfollow")
 
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            target_user_id = request.data["targetUserId"]
-
-            MySQLHandler.delete(
-                "follows",
-                {
-                    "followed_user_id": target_user_id,
-                    "follower_user_id": dict_is_authenticated["id"]
-                }
-            )
-
-            follow_base(dict_is_authenticated["id"], target_user_id, "unfollow")
-
-            ## generate new token with updated rows
-            dict_is_authenticated = is_authenticated(request, clear_cache=True)
-            res[0].update({"token": dict_is_authenticated["new_token"]})
-
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+    return {
+        "newToken": is_authenticated_dict["new_token"]
+    }
 
 
-@api_view(["GET"])
+@basic_response(login_required=False)
 def get_following_or_followers(request, user_id, following_or_follwers):
-    res = [{
-        "status": True,
-        "token": "",
-    }]
-
-    # try:
-    if True:
-        if following_or_follwers == "following":
-            search_column = "follower_user_id"
-            target_column = "followed_user_id"
-        elif following_or_follwers == "followers":
-            search_column = "followed_user_id"
-            target_column = "follower_user_id"
-        else:
-            raise Exception("unknown val")
-
-        user_list = [
-            {
-                "username": MySQLHandler.fetch("users", {"id": row[target_column]})["username"],
-                "userId": row[target_column],
-            }
-            for row in MySQLHandler.fetchall(
-                "follows",
-                {search_column: user_id},
-            )
-        ]
-
-        res[0].update({
-            "contents": user_list,
-            }
-        )
-    # except Exception as e:
+    if following_or_follwers == "following":
+        search_column = "follower_user_id"
+        target_column = "followed_user_id"
+    elif following_or_follwers == "followers":
+        search_column = "followed_user_id"
+        target_column = "follower_user_id"
     else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
+        raise Exception("unknown val")
 
-    return Response(res)
+    user_list = [
+        {
+            "username": MySQLHandler.fetch("users", {"id": row[target_column]})["username"],
+            "userId": row[target_column],
+        }
+        for row in MySQLHandler.fetchall(
+            "follows",
+            {search_column: user_id},
+        )
+    ]
+
+    return {
+        "userList": user_list,
+    }
 
 
-def like_base(user_id, post_id, like_or_unlike):
+def like_base(request, user_id, like_or_unlike):
+    post_id = request.data["postId"]
+
     if like_or_unlike == "like":
+        pfunc = MySQLHandler.insert
         diff = 1
     elif like_or_unlike == "unlike":
+        pfunc = MySQLHandler.delete
         diff = -1
     else:
         raise ValueError(f"unknown like_or_unlike {like_or_unlike}")
+
+    pfunc(
+        "likes",
+        {
+            "user_id": user_id,
+            "post_id": post_id
+        }
+    )
 
     target_post_row = MySQLHandler.fetch("posts", {"id": post_id})
     MySQLHandler.update(
@@ -733,182 +549,87 @@ def like_base(user_id, post_id, like_or_unlike):
         }
     )
 
-
-@api_view(["POST"])
-def like(request):
-    dict_is_authenticated = is_authenticated(request)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
-
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            post_id = request.data["postId"]
-
-            if not (post_id in dict_is_authenticated["like_list"]):
-                MySQLHandler.insert(
-                    "likes",
-                    {
-                        "user_id": dict_is_authenticated["id"],
-                        "post_id": post_id
-                    }
-                )
-
-                like_base(dict_is_authenticated["id"], post_id, "like")
-
-                ## generate new token with updated rows
-                dict_is_authenticated = is_authenticated(request, clear_cache=True)
-                res[0].update({"token": dict_is_authenticated["new_token"]})
-
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+    ## generate new token with updated rows
+    return is_authenticated(request, clear_cache=True)
 
 
-@api_view(["POST"])
-def unlike(request):
-    dict_is_authenticated = is_authenticated(request, clear_cache=True)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
+@basic_response(login_required=True)
+def like(request, is_authenticated_dict):
+    post_id = request.data["postId"]
 
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            post_id = request.data["postId"]
+    if not (post_id in is_authenticated_dict["like_list"]):
+        is_authenticated_dict = like_base(request, is_authenticated_dict["id"], "like")
 
-            MySQLHandler.delete(
-                "likes",
-                {
-                    "user_id": dict_is_authenticated["id"],
-                    "post_id": post_id
-                }
-            )
-
-            like_base(dict_is_authenticated["id"], post_id, "unlike")
-
-            ## generate new token with updated rows
-            dict_is_authenticated = is_authenticated(request, clear_cache=True)
-            res[0].update({"token": dict_is_authenticated["new_token"]})
-
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+    return {
+        "newToken": is_authenticated_dict["new_token"]
+    }
 
 
-@api_view(["POST"])
-def favorite(request):
-    dict_is_authenticated = is_authenticated(request)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
+@basic_response(login_required=True)
+def unlike(request, is_authenticated_dict):
+    is_authenticated_dict = like_base(request, is_authenticated_dict["id"], "unlike")
 
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            post_id = request.data["postId"]
-
-            if not (post_id in dict_is_authenticated["favorite_list"]):
-                MySQLHandler.insert(
-                    "favorites",
-                    {
-                        "user_id": dict_is_authenticated["id"],
-                        "post_id": post_id
-                    }
-                )
-
-                ## generate new token with updated rows
-                dict_is_authenticated = is_authenticated(request, clear_cache=True)
-                res[0].update({"token": dict_is_authenticated["new_token"]})
-
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
-
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
-
-    return Response(res)
+    return {
+        "newToken": is_authenticated_dict["new_token"]
+    }
 
 
-@api_view(["POST"])
-def unfavorite(request):
-    dict_is_authenticated = is_authenticated(request, clear_cache=True)
-    res = [{
-        "status": dict_is_authenticated["bool_authenticated"],
-        "token": dict_is_authenticated["new_token"],
-    }]
+def favorite_base(request, user_id, favorite_or_unfavorite):
+    post_id = request.data["postId"]
 
-    # try:
-    if True:
-        if dict_is_authenticated["bool_authenticated"]:
-            post_id = request.data["postId"]
+    if favorite_or_unfavorite == "favorite":
+        pfunc = MySQLHandler.insert
+    elif favorite_or_unfavorite == "unfavorite":
+        pfunc = MySQLHandler.delete
 
-            MySQLHandler.delete(
-                "favorites",
-                {
-                    "user_id": dict_is_authenticated["id"],
-                    "post_id": post_id
-                }
-            )
+    pfunc(
+        "favorites",
+        {
+            "user_id": user_id,
+            "post_id": post_id
+        }
+    )
 
-            ## generate new token with updated rows
-            dict_is_authenticated = is_authenticated(request, clear_cache=True)
-            res[0].update({"token": dict_is_authenticated["new_token"]})
+    ## generate new token with updated rows
+    return is_authenticated(request, clear_cache=True)
 
-        else:
-            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
 
-    # except Exception as e:
-    else:
-        print("\n\tErr:", e, "\n")
-        res[0]["status"] = False
-        res[0].update({"errorMessage": "backend error"})
+@basic_response(login_required=True)
+def favorite(request, is_authenticated_dict):
+    post_id = request.data["postId"]
 
-    return Response(res)
+    if not (post_id in is_authenticated_dict["favorite_list"]):
+        is_authenticated_dict = favorite_base(request, is_authenticated_dict["id"], "favorite")
+
+    return {
+        "newToken": is_authenticated_dict["new_token"]
+    }
+
+
+@basic_response(login_required=True)
+def unfavorite(request, is_authenticated_dict):
+    is_authenticated_dict = favorite_base(request, is_authenticated_dict["id"], "unfavorite")
+
+    return {
+        "newToken": is_authenticated_dict["new_token"]
+    }
 
 
 # DEBUG: below
 @api_view(["POST"])
 def post_debug(request):
-    dict_is_authenticated = is_authenticated(request)
-    if dict_is_authenticated["bool_authenticated"]:
+    is_authenticated_dict = is_authenticated(request)
+    if is_authenticated_dict["bool_authenticated"]:
         res = [{"status": True, "val":112}]
     else:
-        res = [{"status": False, "reason": dict_is_authenticated["reason"]}]
+        res = [{"status": False, "reason": is_authenticated_dict["reason"]}]
     return Response(res)
 
 
-@api_view(["GET", "POST"])
+@basic_response()
 def debug(request):
-    if request.method == "GET":
-        res = [{"message": "Hello World"}]
-
-    elif request.method == "POST":
-        name = request.data["name"]
-        res = [{"message": f"Hello, {name}!"}]
-
-    return Response(res)
+    res = {"message": f"Hello, World!"}
+    return res
 
 
 @api_view(["GET"])

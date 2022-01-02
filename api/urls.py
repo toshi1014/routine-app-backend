@@ -21,4 +21,5 @@ urlpatterns = [
     path("contents/<int:post_id>/", views.get_contents),
     path("search_results/<str:keyword>/<str:target>/<int:page>/", views.search_results),
     path("delete_users/", views.delete_users),
+    path("debug/", views.debug),
 ]
