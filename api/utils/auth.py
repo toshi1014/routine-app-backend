@@ -14,7 +14,7 @@ def generate_token(id, old_decoded_token=None):
     ## if no old_decoded_token, get follow info from bd
     if bool(old_decoded_token):
         following_list = old_decoded_token["followingList"]
-        favorite_list = old_decoded_token["favoriteList"]
+        like_list = old_decoded_token["likeList"]
         print(f"\n\treuse old token\n")
     else:
         follow_row_list = MySQLHandler.fetchall(
@@ -24,12 +24,12 @@ def generate_token(id, old_decoded_token=None):
         )
         following_list = [follow_row["followed_user_id"] for follow_row in follow_row_list]
 
-        favorite_row_list = MySQLHandler.fetchall(
-            "favorites",
+        like_row_list = MySQLHandler.fetchall(
+            "likes",
             {"user_id": id},
             allow_empty=True
         )
-        favorite_list = [favorite_row["post_id"] for favorite_row in favorite_row_list]
+        like_list = [like_row["post_id"] for like_row in like_row_list]
 
     timestamp = int(time.time()) + 60*60*24*7       ## expire in 1 weeek
     token = jwt.encode(
@@ -39,7 +39,7 @@ def generate_token(id, old_decoded_token=None):
             "username": user_row["username"],
             "exp": timestamp,
             "followingList": following_list,
-            "favoriteList": favorite_list,
+            "likeList": like_list,
         },
         config.SECRET_KEY,
         algorithm="HS256"

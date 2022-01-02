@@ -682,13 +682,13 @@ def get_following_or_followers(request, user_id, following_or_follwers):
     return Response(res)
 
 
-def favorite_base(user_id, post_id, favorite_or_unfavorite):
-    if favorite_or_unfavorite == "favorite":
+def like_base(user_id, post_id, like_or_unlike):
+    if like_or_unlike == "like":
         diff = 1
-    elif favorite_or_unfavorite == "unfavorite":
+    elif like_or_unlike == "unlike":
         diff = -1
     else:
-        raise ValueError(f"unknown favorite_or_unfavorite {favorite_or_unfavorite}")
+        raise ValueError(f"unknown like_or_unlike {like_or_unlike}")
 
     target_post_row = MySQLHandler.fetch("posts", {"id": post_id})
     MySQLHandler.update(
@@ -701,7 +701,7 @@ def favorite_base(user_id, post_id, favorite_or_unfavorite):
 
 
 @api_view(["POST"])
-def favorite(request):
+def like(request):
     dict_is_authenticated = is_authenticated(request)
     res = [{
         "status": dict_is_authenticated["bool_authenticated"],
@@ -714,14 +714,14 @@ def favorite(request):
             post_id = request.data["postId"]
 
             MySQLHandler.insert(
-                "favorites",
+                "likes",
                 {
                     "user_id": dict_is_authenticated["id"],
                     "post_id": post_id
                 }
             )
 
-            favorite_base(dict_is_authenticated["id"], post_id, "favorite")
+            like_base(dict_is_authenticated["id"], post_id, "like")
 
             ## generate new token with updated rows
             dict_is_authenticated = is_authenticated(request, clear_cache=True)
@@ -740,7 +740,7 @@ def favorite(request):
 
 
 @api_view(["POST"])
-def unfavorite(request):
+def unlike(request):
     dict_is_authenticated = is_authenticated(request, clear_cache=True)
     res = [{
         "status": dict_is_authenticated["bool_authenticated"],
@@ -753,14 +753,14 @@ def unfavorite(request):
             post_id = request.data["postId"]
 
             MySQLHandler.delete(
-                "favorites",
+                "likes",
                 {
                     "user_id": dict_is_authenticated["id"],
                     "post_id": post_id
                 }
             )
 
-            favorite_base(dict_is_authenticated["id"], post_id, "unfavorite")
+            like_base(dict_is_authenticated["id"], post_id, "unlike")
 
             ## generate new token with updated rows
             dict_is_authenticated = is_authenticated(request, clear_cache=True)
