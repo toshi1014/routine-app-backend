@@ -682,6 +682,103 @@ def get_following_or_followers(request, user_id, following_or_follwers):
     return Response(res)
 
 
+def favorite_base(user_id, post_id, favorite_or_unfavorite):
+    if favorite_or_unfavorite == "favorite":
+        diff = 1
+    elif favorite_or_unfavorite == "unfavorite":
+        diff = -1
+    else:
+        raise ValueError(f"unknown favorite_or_unfavorite {favorite_or_unfavorite}")
+
+    target_post_row = MySQLHandler.fetch("posts", {"id": post_id})
+    MySQLHandler.update(
+        "posts",
+        {"id": post_id},
+        dict_update_column_val={
+            "like_num": target_post_row["like_num"] + diff
+        }
+    )
+
+
+@api_view(["POST"])
+def favorite(request):
+    dict_is_authenticated = is_authenticated(request)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    # try:
+    if True:
+        if dict_is_authenticated["bool_authenticated"]:
+            post_id = request.data["postId"]
+
+            MySQLHandler.insert(
+                "favorites",
+                {
+                    "user_id": dict_is_authenticated["id"],
+                    "post_id": post_id
+                }
+            )
+
+            favorite_base(dict_is_authenticated["id"], post_id, "favorite")
+
+            ## generate new token with updated rows
+            dict_is_authenticated = is_authenticated(request, clear_cache=True)
+            res[0].update({"token": dict_is_authenticated["new_token"]})
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def unfavorite(request):
+    dict_is_authenticated = is_authenticated(request, clear_cache=True)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    # try:
+    if True:
+        if dict_is_authenticated["bool_authenticated"]:
+            post_id = request.data["postId"]
+
+            MySQLHandler.delete(
+                "favorites",
+                {
+                    "user_id": dict_is_authenticated["id"],
+                    "post_id": post_id
+                }
+            )
+
+            favorite_base(dict_is_authenticated["id"], post_id, "unfavorite")
+
+            ## generate new token with updated rows
+            dict_is_authenticated = is_authenticated(request, clear_cache=True)
+            res[0].update({"token": dict_is_authenticated["new_token"]})
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+# DEBUG: below
 @api_view(["POST"])
 def post_debug(request):
     dict_is_authenticated = is_authenticated(request)
