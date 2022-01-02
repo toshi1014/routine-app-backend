@@ -11,11 +11,14 @@ from .handle_db import MySQLHandler
 def generate_token(id, old_decoded_token=None):
     user_row = MySQLHandler.fetch("users", {"id": id})
 
-    ## if no old_decoded_token, get follow info from bd
     if bool(old_decoded_token):
         following_list = old_decoded_token["followingList"]
         like_list = old_decoded_token["likeList"]
+        favorite_list = old_decoded_token["favoriteList"]
+
         print(f"\n\treuse old token\n")
+
+    ## if no old_decoded_token, get info from bd
     else:
         follow_row_list = MySQLHandler.fetchall(
             "follows",
@@ -31,6 +34,13 @@ def generate_token(id, old_decoded_token=None):
         )
         like_list = [like_row["post_id"] for like_row in like_row_list]
 
+        favorite_row_list = MySQLHandler.fetchall(
+            "favorites",
+            {"user_id": id},
+            allow_empty=True
+        )
+        favorite_list = [favorite_row["post_id"] for favorite_row in favorite_row_list]
+
     timestamp = int(time.time()) + 60*60*24*7       ## expire in 1 weeek
     token = jwt.encode(
         {
@@ -40,6 +50,7 @@ def generate_token(id, old_decoded_token=None):
             "exp": timestamp,
             "followingList": following_list,
             "likeList": like_list,
+            "favoriteList": favorite_list,
         },
         config.SECRET_KEY,
         algorithm="HS256"
@@ -83,6 +94,8 @@ def is_authenticated(request, clear_cache=False):
         email = decoded_token.get("email")
         username = decoded_token.get("username")
         exp = decoded_token.get("exp")
+        like_list = decoded_token.get("likeList")
+        favorite_list = decoded_token.get("favoriteList")
 
         if clear_cache:
             new_token = generate_token(id)
@@ -102,6 +115,8 @@ def is_authenticated(request, clear_cache=False):
         "id": id,
         "email": email,
         "username": username,
+        "like_list": like_list,
+        "favorite_list": favorite_list,
         "reason": reason,
         "new_token": new_token,
     }

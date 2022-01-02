@@ -141,10 +141,27 @@ def mypage(request, user_id):
             allow_empty=True,
         )
 
+        favorite_post_id_list = MySQLHandler.fetchall(
+            "favorites",
+            {"user_id": user_id},
+            allow_empty=True,
+        )
+        favorite_list = []
+        for favorite_post_id in favorite_post_id_list:
+            favorite_list += get_pack_content_list(
+                "post_contents",
+                MySQLHandler.fetchall(
+                    "posts",
+                    {"id": favorite_post_id["post_id"]},
+                ),
+                allow_empty=True,
+            )
+
         res[0].update({
             "contents":{
                 "header": get_mypage_header(user_row),
                 "postedList": posted_list,
+                "favoriteList": favorite_list,
             }
         })
     # except Exception as e:
@@ -183,6 +200,22 @@ def mypage_login(request):
                 allow_empty=True,
             )
 
+            favorite_post_id_list = MySQLHandler.fetchall(
+                "favorites",
+                {"user_id": dict_is_authenticated["id"]},
+                allow_empty=True,
+            )
+            favorite_list = []
+            for favorite_post_id in favorite_post_id_list:
+                favorite_list += get_pack_content_list(
+                    "post_contents",
+                    MySQLHandler.fetchall(
+                        "posts",
+                        {"id": favorite_post_id["post_id"]},
+                    ),
+                    allow_empty=True,
+                )
+
             draft_list = get_pack_content_list(
                 "draft_contents",
                 MySQLHandler.fetchall(
@@ -198,6 +231,7 @@ def mypage_login(request):
                 "contents":{
                     "header": get_mypage_header(user_row),
                     "postedList": posted_list,
+                    "favoriteList": favorite_list,
                     "draftList": draft_list,
                 }
             })
@@ -713,19 +747,20 @@ def like(request):
         if dict_is_authenticated["bool_authenticated"]:
             post_id = request.data["postId"]
 
-            MySQLHandler.insert(
-                "likes",
-                {
-                    "user_id": dict_is_authenticated["id"],
-                    "post_id": post_id
-                }
-            )
+            if not (post_id in dict_is_authenticated["like_list"]):
+                MySQLHandler.insert(
+                    "likes",
+                    {
+                        "user_id": dict_is_authenticated["id"],
+                        "post_id": post_id
+                    }
+                )
 
-            like_base(dict_is_authenticated["id"], post_id, "like")
+                like_base(dict_is_authenticated["id"], post_id, "like")
 
-            ## generate new token with updated rows
-            dict_is_authenticated = is_authenticated(request, clear_cache=True)
-            res[0].update({"token": dict_is_authenticated["new_token"]})
+                ## generate new token with updated rows
+                dict_is_authenticated = is_authenticated(request, clear_cache=True)
+                res[0].update({"token": dict_is_authenticated["new_token"]})
 
         else:
             res[0].update({"errorMessage": dict_is_authenticated["reason"]})
@@ -761,6 +796,81 @@ def unlike(request):
             )
 
             like_base(dict_is_authenticated["id"], post_id, "unlike")
+
+            ## generate new token with updated rows
+            dict_is_authenticated = is_authenticated(request, clear_cache=True)
+            res[0].update({"token": dict_is_authenticated["new_token"]})
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def favorite(request):
+    dict_is_authenticated = is_authenticated(request)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    # try:
+    if True:
+        if dict_is_authenticated["bool_authenticated"]:
+            post_id = request.data["postId"]
+
+            if not (post_id in dict_is_authenticated["favorite_list"]):
+                MySQLHandler.insert(
+                    "favorites",
+                    {
+                        "user_id": dict_is_authenticated["id"],
+                        "post_id": post_id
+                    }
+                )
+
+                ## generate new token with updated rows
+                dict_is_authenticated = is_authenticated(request, clear_cache=True)
+                res[0].update({"token": dict_is_authenticated["new_token"]})
+
+        else:
+            res[0].update({"errorMessage": dict_is_authenticated["reason"]})
+
+    # except Exception as e:
+    else:
+        print("\n\tErr:", e, "\n")
+        res[0]["status"] = False
+        res[0].update({"errorMessage": "backend error"})
+
+    return Response(res)
+
+
+@api_view(["POST"])
+def unfavorite(request):
+    dict_is_authenticated = is_authenticated(request, clear_cache=True)
+    res = [{
+        "status": dict_is_authenticated["bool_authenticated"],
+        "token": dict_is_authenticated["new_token"],
+    }]
+
+    # try:
+    if True:
+        if dict_is_authenticated["bool_authenticated"]:
+            post_id = request.data["postId"]
+
+            MySQLHandler.delete(
+                "favorites",
+                {
+                    "user_id": dict_is_authenticated["id"],
+                    "post_id": post_id
+                }
+            )
 
             ## generate new token with updated rows
             dict_is_authenticated = is_authenticated(request, clear_cache=True)

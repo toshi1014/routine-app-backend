@@ -15,6 +15,8 @@ urlpatterns = [
     path("mypage_login/unfollow/", views.unfollow),
     path("mypage_login/like/", views.like),
     path("mypage_login/unlike/", views.unlike),
+    path("mypage_login/favorite/", views.favorite),
+    path("mypage_login/unfavorite/", views.unfavorite),
     path("post_or_draft/", views.post_or_draft),
     path("contents/<int:post_id>/", views.get_contents),
     path("search_results/<str:keyword>/<str:target>/<int:page>/", views.search_results),
