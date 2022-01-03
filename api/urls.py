@@ -20,6 +20,9 @@ urlpatterns = [
     path("post_or_draft/", views.post_or_draft),
     path("contents/<int:post_id>/", views.get_contents),
     path("search_results/<str:keyword>/<str:target>/<int:page>/", views.search_results),
+    path("send_email/", views.send_email),
+
+    # DEBUG: below
     path("delete_users/", views.delete_users),
     path("debug/", views.debug),
 ]

@@ -2,6 +2,9 @@ import datetime
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.core.mail import send_mail as django_send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from rest_framework.response import Response
 from rest_framework.decorators import api_view,authentication_classes, permission_classes
 from .utils.auth import Login, is_authenticated, generate_token
@@ -615,6 +618,31 @@ def unfavorite(request, is_authenticated_dict):
     }
 
 
+
+@basic_response(login_required=False)
+def send_email(request):
+    recipient = request.data["recipient"]
+    purpose = request.data["purpose"]
+    context = request.data["context"]
+
+    if purpose == "auth":
+        template_filepath = "email/auth.html"
+        subject = "Activate your account!"
+    else:
+        raise Exception(f"unknown purpose {purpose}")
+
+    html_content = render_to_string(template_filepath, context)
+
+    django_send_mail(
+        subject=subject,
+        message=strip_tags(html_content),
+        from_email=config.EMAIL_HOST_USER,
+        recipient_list=[recipient],
+        html_message=html_content,
+    )
+    return {}
+
+
 # DEBUG: below
 @api_view(["POST"])
 def post_debug(request):
@@ -626,7 +654,7 @@ def post_debug(request):
     return Response(res)
 
 
-@basic_response()
+@basic_response(login_required=False)
 def debug(request):
     res = {"message": f"Hello, World!"}
     return res
