@@ -1,4 +1,4 @@
-import datetime
+import os, datetime, pickle
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
@@ -12,6 +12,9 @@ from .utils.handle_db import MySQLHandler
 import config
 
 
+EMAIL_TEMPLATE_FOLDER = "emails"
+
+
 def basic_response(*deco_args, **deco_kwargs):
     def _basic_response(func):
         @api_view(["GET", "POST", "PUT", "DELETE"])
@@ -20,6 +23,7 @@ def basic_response(*deco_args, **deco_kwargs):
                 "status": True,
                 "token": "",
             }
+            is_authenticated_dict = None
 
             # try:
             if True:        # DEBUG:
@@ -42,13 +46,32 @@ def basic_response(*deco_args, **deco_kwargs):
 
             # except Exception as e:
             else:
-                print("\n\tErr:", e, "\n")
+                # print("\n\tErr:", e, "\n")
+
+                error_report(func, e, is_authenticated_dict, args[0]) ## args[0] == request
                 res["status"] = False
                 res.update({"errorMessage": "backend error"})
 
             return Response([res])
         return wrapper
     return _basic_response
+
+
+def error_report(func, exception, is_authenticated_dict, request):
+    subject = "Backend Error"
+    message = f"""
+func\t: {str(func)}
+err\t: {str(exception)}
+req\t: {str(request)}
+data\t: {request.data}
+    """
+
+    django_send_mail(
+        subject=subject,
+        message=message,
+        from_email=config.EMAIL_HOST_USER,
+        recipient_list=[config.EMAIL_ADMIN],
+    )
 
 
 def get_pack_content_list(table, xx_row_list, user_row=None, allow_empty=True):
@@ -626,7 +649,7 @@ def send_email(request):
     context = request.data["context"]
 
     if purpose == "auth":
-        template_filepath = "email/auth.html"
+        template_filepath = os.path.join(EMAIL_TEMPLATE_FOLDER, "auth.html")
         subject = "Activate your account!"
     else:
         raise Exception(f"unknown purpose {purpose}")
