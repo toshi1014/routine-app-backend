@@ -34,23 +34,24 @@ def basic_response(*deco_args, **deco_kwargs):
                     res["token"] = is_authenticated_dict["new_token"]
 
                     if is_authenticated_dict["bool_authenticated"]:
-                        res.update({
-                            "contents": func(
-                                *args, **kwargs, is_authenticated_dict=is_authenticated_dict
-                            ),
-                        })
+                        rtn = func(*args, **kwargs, is_authenticated_dict=is_authenticated_dict)
                     else:
-                        res.update({"errorMessage": is_authenticated_dict["reason"]})
+                        rtn = {"errorMessage": is_authenticated_dict["reason"]}
                 else:
-                    res.update({"contents": func(*args, **kwargs)})
+                    rtn = func(*args, **kwargs)
 
             # except Exception as e:
             else:
                 # print("\n\tErr:", e, "\n")
 
                 error_report(func, e, is_authenticated_dict, args[0]) ## args[0] == request
+                rtn = {"errorMessage": "backend error"}
+
+            if (not res["status"]) or ("errorMessage" in rtn.keys()):
                 res["status"] = False
-                res.update({"errorMessage": "backend error"})
+                res.update(rtn)
+            else:
+                res.update({"contents": rtn})
 
             return Response([res])
         return wrapper
@@ -76,11 +77,11 @@ data\t: {request.data}
 
 def get_badge(followers_num):
     badge = "noBadge"
-    if config.BADGE_L1 >= followers_num:
+    if followers_num >= config.BADGE_L1:
         badge = "l1"
-    if config.BADGE_L2 >= followers_num:
+    if followers_num >= config.BADGE_L2:
         badge = "l2"
-    if config.BADGE_L3 >= followers_num:
+    if followers_num >= config.BADGE_L3:
         badge = "l3"
     return badge
 
@@ -349,7 +350,11 @@ def post_or_draft(request, is_authenticated_dict):
 def get_contents(request, post_id):
     print("\n\t", post_id, "\n")
 
-    post_row = MySQLHandler.fetch("posts", {"id": post_id})
+    post_row = MySQLHandler.fetch("posts", {"id": post_id}, allow_empty=True)
+
+    if (post_row == []):
+        return {"errorMessage": "Contents not found"}
+
     user_row = MySQLHandler.fetch("users", {"id": post_row["contributor_id"]})
 
     raw_post_contents_row_list = MySQLHandler.fetchall(
@@ -674,6 +679,29 @@ def send_email(request):
         from_email=config.EMAIL_HOST_USER,
         recipient_list=[recipient],
         html_message=html_content,
+    )
+    return {}
+
+
+@basic_response(login_required=False)
+def report(request):
+    post_id = request.data["postId"]
+    reason = request.data["reason"]
+    report_comment = request.data["reportComment"]
+
+    subject = "Report"
+    message = f"""
+post_id\t: {post_id}
+reason\t: {reason}
+comment\t: {report_comment}
+url\t: {config.FRONTEND_URL}/routine_contents/{post_id}
+    """
+
+    django_send_mail(
+        subject=subject,
+        message=message,
+        from_email=config.EMAIL_HOST_USER,
+        recipient_list=[config.EMAIL_HOST_USER, config.EMAIL_ADMIN],
     )
     return {}
 

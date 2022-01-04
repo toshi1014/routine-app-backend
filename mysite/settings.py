@@ -134,7 +134,7 @@ CORS_ORIGIN_WHITELIST = (
     'http://localhost:3000',
 )
 
-if not DEBUG:
+if DEBUG:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
