@@ -74,6 +74,17 @@ data\t: {request.data}
     )
 
 
+def get_badge(followers_num):
+    badge = "noBadge"
+    if config.BADGE_L1 >= followers_num:
+        badge = "l1"
+    if config.BADGE_L2 >= followers_num:
+        badge = "l2"
+    if config.BADGE_L3 >= followers_num:
+        badge = "l3"
+    return badge
+
+
 def get_pack_content_list(table, xx_row_list, user_row=None, allow_empty=True):
     xx_list = []
 
@@ -103,6 +114,7 @@ def get_pack_content_list(table, xx_row_list, user_row=None, allow_empty=True):
             "id": xx_row["id"],
             "contributor": user_row_now["username"],
             "contributorId": user_row_now["id"],
+            "badge": get_badge(user_row_now["followers_num"]),
             "title": xx_row["title"],
             "desc": xx_row["description"],
             "titleStep1": xx_contents_row["title"],

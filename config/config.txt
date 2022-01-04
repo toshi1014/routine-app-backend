@@ -1,2 +1,5 @@
 readonly DB_NAME="routine_app"
 readonly POSTS_PER_PAGE=20
+readonly BADGE_L1=100
+readonly BADGE_L2=500
+readonly BADGE_L3=1000
