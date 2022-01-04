@@ -231,8 +231,11 @@ def get_draft_list(user_row):
 @basic_response(login_required=False)
 def mypage(request, user_id):
     user_row = MySQLHandler.fetch(
-        "users", {"id": user_id}
+        "users", {"id": user_id}, allow_empty=True
     )
+
+    if user_row == []:
+        return {"errorMessage": "User not found"}
 
     return {
         "header": get_mypage_header(user_row),
@@ -352,7 +355,7 @@ def get_contents(request, post_id):
 
     post_row = MySQLHandler.fetch("posts", {"id": post_id}, allow_empty=True)
 
-    if (post_row == []):
+    if post_row == []:
         return {"errorMessage": "Contents not found"}
 
     user_row = MySQLHandler.fetch("users", {"id": post_row["contributor_id"]})
