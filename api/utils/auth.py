@@ -6,6 +6,7 @@ from rest_framework.response import Response
 import jwt
 import config
 from .handle_db import MySQLHandler
+from .utils import get_badge
 
 
 def generate_token(id, old_decoded_token=None):
@@ -47,6 +48,7 @@ def generate_token(id, old_decoded_token=None):
             "id": id,
             "email": user_row["email"],
             "username": user_row["username"],
+            "badge" : get_badge(user_row["followers_num"]),
             "exp": timestamp,
             "followingList": following_list,
             "likeList": like_list,
@@ -85,6 +87,7 @@ def is_authenticated(request, clear_cache=False):
     id = None
     email = None
     username = None
+    badge = None
     like_list = None
     favorite_list = None
     reason = None
@@ -95,6 +98,7 @@ def is_authenticated(request, clear_cache=False):
         id = decoded_token.get("id")
         email = decoded_token.get("email")
         username = decoded_token.get("username")
+        badge = decoded_token.get("badge")
         exp = decoded_token.get("exp")
         like_list = decoded_token.get("likeList")
         favorite_list = decoded_token.get("favoriteList")
@@ -117,6 +121,7 @@ def is_authenticated(request, clear_cache=False):
         "id": id,
         "email": email,
         "username": username,
+        "badge": badge,
         "like_list": like_list,
         "favorite_list": favorite_list,
         "reason": reason,

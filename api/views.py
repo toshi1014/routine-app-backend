@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view,authentication_classes, permission_classes
 from .utils.auth import Login, is_authenticated, generate_token
 from .utils.handle_db import MySQLHandler
+from .utils.utils import get_badge
 import config
 
 
@@ -75,17 +76,6 @@ data\t: {request.data}
     )
 
 
-def get_badge(followers_num):
-    badge = "noBadge"
-    if followers_num >= config.BADGE_L1:
-        badge = "l1"
-    if followers_num >= config.BADGE_L2:
-        badge = "l2"
-    if followers_num >= config.BADGE_L3:
-        badge = "l3"
-    return badge
-
-
 def get_pack_content_list(table, xx_row_list, user_row=None, allow_empty=True):
     xx_list = []
 
@@ -145,9 +135,8 @@ def login(request):
 @basic_response(login_required=False)
 def is_unique(request):
     column, val = request.data["column"], request.data["val"]
-
-    # TODO: check whether unique
-    bool_unique = False
+    row = MySQLHandler.fetch("users", {column: val}, allow_empty=True)
+    bool_unique = (row == [])
     return  { "boolUnique": bool_unique }
 
 
@@ -384,6 +373,7 @@ def get_contents(request, post_id):
             "like": post_row["like_num"],
             "contributor": user_row["username"],
             "contributorId": user_row["id"],
+            "badge" : get_badge(user_row["followers_num"]),
             "lastUpdated": post_row["last_updated"],
         },
         "elementList": element_list,
