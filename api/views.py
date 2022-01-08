@@ -1,4 +1,6 @@
-import os, datetime, pickle
+import os
+import datetime
+import pickle
 from django.shortcuts import render
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
@@ -6,7 +8,7 @@ from django.core.mail import send_mail as django_send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from rest_framework.response import Response
-from rest_framework.decorators import api_view,authentication_classes, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from .utils.auth import Login, is_authenticated, generate_token
 from .utils.handle_db import MySQLHandler
 from .utils.utils import get_badge
@@ -29,13 +31,16 @@ def basic_response(*deco_args, **deco_kwargs):
             # try:
             if True:        # DEBUG:
                 if deco_kwargs["login_required"]:
-                    is_authenticated_dict = is_authenticated(args[0]) ## args[0] == request
+                    # args[0] == request
+                    is_authenticated_dict = is_authenticated(args[0])
 
                     res["status"] = is_authenticated_dict["bool_authenticated"]
                     res["token"] = is_authenticated_dict["new_token"]
 
                     if is_authenticated_dict["bool_authenticated"]:
-                        rtn = func(*args, **kwargs, is_authenticated_dict=is_authenticated_dict)
+                        rtn = func(
+                            *args, **kwargs, is_authenticated_dict=is_authenticated_dict
+                        )
                     else:
                         rtn = {"errorMessage": is_authenticated_dict["reason"]}
                 else:
@@ -45,7 +50,10 @@ def basic_response(*deco_args, **deco_kwargs):
             else:
                 # print("\n\tErr:", e, "\n")
 
-                error_report(func, e, is_authenticated_dict, args[0]) ## args[0] == request
+                # args[0] == request
+                error_report(
+                    func, e, is_authenticated_dict, args[0]
+                )
                 rtn = {"errorMessage": "backend error"}
 
             if (not res["status"]) or ("errorMessage" in rtn.keys()):
@@ -91,7 +99,7 @@ def get_pack_content_list(table, xx_row_list, user_row=None, allow_empty=True):
     ]
 
     for xx_row, xx_contents_row in zip(xx_row_list, xx_contents_row_list):
-        ## if user_row is not provided
+        # if user_row is not provided
         if not bool(user_row):
             user_row_now = MySQLHandler.fetch(
                 "users",
@@ -137,7 +145,7 @@ def is_unique(request):
     column, val = request.data["column"], request.data["val"]
     row = MySQLHandler.fetch("users", {column: val}, allow_empty=True)
     bool_unique = (row == [])
-    return  { "boolUnique": bool_unique }
+    return {"boolUnique": bool_unique}
 
 
 @basic_response(login_required=False)
@@ -162,14 +170,14 @@ def signup(request):
 
 def get_mypage_header(user_row):
     header = {
-        "email": user_row["email"],
         "username": user_row["username"],
+        "badge": get_badge(user_row["followers_num"]),
         "statusMessage": user_row["status_message"],
         "hashtagList": user_row["hashtag_list"].split(","),
         "followingNum": user_row["following_num"],
         "followersNum": user_row["followers_num"],
     }
-    return header;
+    return header
 
 
 def get_posted_list(user_row):
@@ -203,6 +211,7 @@ def get_favorite_list(user_row):
         )
 
     return favorite_list
+
 
 def get_draft_list(user_row):
     return get_pack_content_list(
@@ -253,7 +262,7 @@ def update_user_info(request, is_authenticated_dict):
     val = request.data["val"]
     MySQLHandler.update(
         "users",
-        { "id": is_authenticated_dict["id"]},
+        {"id": is_authenticated_dict["id"]},
         dict_update_column_val={column: val}
     )
 
@@ -264,7 +273,7 @@ def update_user_info(request, is_authenticated_dict):
 def post_or_draft(request, is_authenticated_dict):
     print("\n\t", request.data, "\n")
     post_or_draft = request.data["postOrDraft"]
-    post_id = request.data["postId"]    ## None or int
+    post_id = request.data["postId"]  # None or int
     bool_edited_draft = request.data["boolEditedDraft"]
     title = request.data["title"]
     desc = request.data["desc"]
@@ -272,7 +281,8 @@ def post_or_draft(request, is_authenticated_dict):
     routine_element_list = request.data["routineElements"]
 
     bool_draft2post = bool_edited_draft & (post_or_draft == "post")
-    bool_post2draft = (not bool_edited_draft) & (post_or_draft == "draft") & bool(post_id)
+    bool_post2draft = (not bool_edited_draft) & (
+        post_or_draft == "draft") & bool(post_id)
 
     if post_or_draft == "post":
         title_table = "posts"
@@ -283,7 +293,6 @@ def post_or_draft(request, is_authenticated_dict):
     else:
         raise Exception(f"unknown post_or_draft {post_or_draft}")
 
-
     contents_title = {
         "contributor_id": is_authenticated_dict["id"],
         "title": title,
@@ -292,8 +301,7 @@ def post_or_draft(request, is_authenticated_dict):
         "hashtag_list": ",".join(hashtag_list),
     }
 
-
-    ## if just update & not draft2post & not post2draft
+    # if just update & not draft2post & not post2draft
     if bool(post_id) & (not bool_draft2post) & (not bool_post2draft):
         MySQLHandler.update(
             title_table, {"id": post_id}, contents_title
@@ -301,7 +309,7 @@ def post_or_draft(request, is_authenticated_dict):
         for idx, routine_element in enumerate(routine_element_list):
             MySQLHandler.update(
                 contents_table,
-                {"post_id": post_id, "step_num": idx+1},
+                {"post_id": post_id, "step_num": idx + 1},
                 {
                     "title": routine_element["title"],
                     "subtitle": routine_element["subtitle"],
@@ -309,7 +317,7 @@ def post_or_draft(request, is_authenticated_dict):
                 }
             )
 
-    ## if new post
+    # if new post
     else:
         lastrowid = MySQLHandler.insert(
             title_table, contents_title
@@ -320,7 +328,7 @@ def post_or_draft(request, is_authenticated_dict):
                 contents_table,
                 {
                     "post_id": lastrowid,
-                    "step_num": idx + 1,        ## idx to order
+                    "step_num": idx + 1,  # idx to order
                     "title": routine_element["title"],
                     "subtitle": routine_element["subtitle"],
                     "description": routine_element["desc"],
@@ -328,7 +336,7 @@ def post_or_draft(request, is_authenticated_dict):
             )
 
         if bool_draft2post:
-            ## delete draft
+            # delete draft
             MySQLHandler.delete("drafts", {"id": post_id})
             MySQLHandler.delete("draft_contents", {"post_id": post_id})
         elif bool_post2draft:
@@ -355,7 +363,9 @@ def get_contents(request, post_id):
 
     element_list = []
 
-    post_contents_row_list = sorted(raw_post_contents_row_list, key=lambda kv: kv["step_num"])
+    post_contents_row_list = sorted(
+        raw_post_contents_row_list, key=lambda kv: kv["step_num"]
+    )
 
     for post_contents_row in post_contents_row_list:
         element_list.append({
@@ -373,7 +383,7 @@ def get_contents(request, post_id):
             "like": post_row["like_num"],
             "contributor": user_row["username"],
             "contributorId": user_row["id"],
-            "badge" : get_badge(user_row["followers_num"]),
+            "badge": get_badge(user_row["followers_num"]),
             "lastUpdated": post_row["last_updated"],
         },
         "elementList": element_list,
@@ -384,7 +394,9 @@ def get_contents(request, post_id):
 def get_draft(request, is_authenticated_dict):
     draft_id = request.data["id"]
     user_row = MySQLHandler.fetch("users", {"id": is_authenticated_dict["id"]})
-    draft_row = MySQLHandler.fetch("drafts", {"id": draft_id, "contributor_id": user_row["id"]})
+    draft_row = MySQLHandler.fetch(
+        "drafts", {"id": draft_id, "contributor_id": user_row["id"]}
+    )
 
     raw_draft_contents_row_list = MySQLHandler.fetchall(
         "draft_contents", {"post_id": draft_row["id"]},
@@ -392,7 +404,9 @@ def get_draft(request, is_authenticated_dict):
 
     element_list = []
 
-    draft_contents_row_list = sorted(raw_draft_contents_row_list, key=lambda kv: kv["step_num"])
+    draft_contents_row_list = sorted(
+        raw_draft_contents_row_list, key=lambda kv: kv["step_num"]
+    )
 
     for draft_contents_row in draft_contents_row_list:
         element_list.append({
@@ -446,9 +460,11 @@ def search_results(request, keyword, target, page):
     )
 
     result_row_list = raw_result_row_list[
-        (page - 1)* config.POSTS_PER_PAGE*page :
+        (page - 1) * config.POSTS_PER_PAGE:
         config.POSTS_PER_PAGE * page
     ]
+
+    print("\n\t", len(raw_result_row_list), "\n")
 
     result_list = get_pack_content_list(
         "post_contents",
@@ -456,7 +472,12 @@ def search_results(request, keyword, target, page):
         allow_empty=True,
     )
 
-    page_length = len(raw_result_row_list)//config.POSTS_PER_PAGE
+    page_length = len(raw_result_row_list) // config.POSTS_PER_PAGE
+    remainder = len(raw_result_row_list) % config.POSTS_PER_PAGE
+
+    if remainder != 0:
+        page_length += 1
+
     if page_length == 0:
         page_length = 1
 
@@ -486,7 +507,7 @@ def follow_base(request, user_id, follow_or_unfollow):
         }
     )
 
-    ## update followed one's row
+    # update followed one's row
     target_user_row = MySQLHandler.fetch("users", {"id": target_user_id})
     MySQLHandler.update(
         "users",
@@ -496,7 +517,7 @@ def follow_base(request, user_id, follow_or_unfollow):
         }
     )
 
-    ## update following one's row
+    # update following one's row
     user_row = MySQLHandler.fetch("users", {"id": user_id})
 
     MySQLHandler.update(
@@ -507,13 +528,15 @@ def follow_base(request, user_id, follow_or_unfollow):
         }
     )
 
-    ## generate new token with updated rows
+    # generate new token with updated rows
     return is_authenticated(request, clear_cache=True)
 
 
 @basic_response(login_required=True)
 def follow(request, is_authenticated_dict):
-    is_authenticated_dict = follow_base(request, is_authenticated_dict["id"], "follow")
+    is_authenticated_dict = follow_base(
+        request, is_authenticated_dict["id"], "follow"
+    )
 
     return {
         "newToken": is_authenticated_dict["new_token"]
@@ -522,7 +545,9 @@ def follow(request, is_authenticated_dict):
 
 @basic_response(login_required=True)
 def unfollow(request, is_authenticated_dict):
-    is_authenticated_dict = follow_base(request, is_authenticated_dict["id"], "unfollow")
+    is_authenticated_dict = follow_base(
+        request, is_authenticated_dict["id"], "unfollow"
+    )
 
     return {
         "newToken": is_authenticated_dict["new_token"]
@@ -585,7 +610,7 @@ def like_base(request, user_id, like_or_unlike):
         }
     )
 
-    ## generate new token with updated rows
+    # generate new token with updated rows
     return is_authenticated(request, clear_cache=True)
 
 
@@ -594,7 +619,9 @@ def like(request, is_authenticated_dict):
     post_id = request.data["postId"]
 
     if not (post_id in is_authenticated_dict["like_list"]):
-        is_authenticated_dict = like_base(request, is_authenticated_dict["id"], "like")
+        is_authenticated_dict = like_base(
+            request, is_authenticated_dict["id"], "like"
+        )
 
     return {
         "newToken": is_authenticated_dict["new_token"]
@@ -603,7 +630,9 @@ def like(request, is_authenticated_dict):
 
 @basic_response(login_required=True)
 def unlike(request, is_authenticated_dict):
-    is_authenticated_dict = like_base(request, is_authenticated_dict["id"], "unlike")
+    is_authenticated_dict = like_base(
+        request, is_authenticated_dict["id"], "unlike"
+    )
 
     return {
         "newToken": is_authenticated_dict["new_token"]
@@ -626,7 +655,7 @@ def favorite_base(request, user_id, favorite_or_unfavorite):
         }
     )
 
-    ## generate new token with updated rows
+    # generate new token with updated rows
     return is_authenticated(request, clear_cache=True)
 
 
@@ -635,7 +664,9 @@ def favorite(request, is_authenticated_dict):
     post_id = request.data["postId"]
 
     if not (post_id in is_authenticated_dict["favorite_list"]):
-        is_authenticated_dict = favorite_base(request, is_authenticated_dict["id"], "favorite")
+        is_authenticated_dict = favorite_base(
+            request, is_authenticated_dict["id"], "favorite"
+        )
 
     return {
         "newToken": is_authenticated_dict["new_token"]
@@ -644,12 +675,13 @@ def favorite(request, is_authenticated_dict):
 
 @basic_response(login_required=True)
 def unfavorite(request, is_authenticated_dict):
-    is_authenticated_dict = favorite_base(request, is_authenticated_dict["id"], "unfavorite")
+    is_authenticated_dict = favorite_base(
+        request, is_authenticated_dict["id"], "unfavorite"
+    )
 
     return {
         "newToken": is_authenticated_dict["new_token"]
     }
-
 
 
 @basic_response(login_required=False)
@@ -704,7 +736,7 @@ url\t: {config.FRONTEND_URL}/routine_contents/{post_id}
 def post_debug(request):
     is_authenticated_dict = is_authenticated(request)
     if is_authenticated_dict["bool_authenticated"]:
-        res = [{"status": True, "val":112}]
+        res = [{"status": True, "val": 112}]
     else:
         res = [{"status": False, "reason": is_authenticated_dict["reason"]}]
     return Response(res)
