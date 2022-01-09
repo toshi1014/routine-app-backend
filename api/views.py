@@ -731,8 +731,23 @@ url\t: {config.FRONTEND_URL}/routine_contents/{post_id}
     return {}
 
 
+# TODO: secure
+@basic_response(login_required=True)
+def download_db(request, is_authenticated_dict):
+    table_name_list = request.data["tableNameList"]
+    res = {}
+    for table_name in table_name_list:
+        res.update({
+            table_name: {
+                "columns": config.db_column_list[table_name],
+                "records": MySQLHandler.get_all_records(table_name),
+            }
+        })
+    return res
+
+
 # DEBUG: below
-@api_view(["POST"])
+@ api_view(["POST"])
 def post_debug(request):
     is_authenticated_dict = is_authenticated(request)
     if is_authenticated_dict["bool_authenticated"]:
@@ -742,13 +757,13 @@ def post_debug(request):
     return Response(res)
 
 
-@basic_response(login_required=False)
+@ basic_response(login_required=False)
 def debug(request):
     res = {"message": f"Hello, World!"}
     return res
 
 
-@api_view(["GET"])
+@ api_view(["GET"])
 def delete_users(request):
     from django.contrib.auth.models import User
     users = User.objects.all()

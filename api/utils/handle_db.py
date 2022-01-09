@@ -16,7 +16,7 @@ db.commit()
 class MySQLHandler():
     @classmethod
     def insert(cls, table_name, key_val_dict):
-        str_keys= ""
+        str_keys = ""
         str_vals = ""
         for key in key_val_dict:
             str_keys += key + ","
@@ -25,7 +25,7 @@ class MySQLHandler():
             else:
                 str_vals += "'" + key_val_dict[key] + "',"
 
-        str_keys, str_vals = str_keys[:-1], str_vals[:-1]     ## remove last ","
+        str_keys, str_vals = str_keys[:-1], str_vals[:-1]  # remove last ","
 
         cmd = f"INSERT INTO {table_name} ({str_keys}) VALUES ({str_vals});"
         print("\n\t", cmd, "\n")
@@ -50,7 +50,7 @@ class MySQLHandler():
             else:
                 str_conditions += f"{key} = '{key_val_dict[key]}' AND "
 
-        return str_conditions[:-5]    ## remove last " AND "
+        return str_conditions[:-5]  # remove last " AND "
 
     def fetch_base(cls, table_name, key_val_dict):
         str_conditions = cls.join_with_AND(key_val_dict)
@@ -96,7 +96,6 @@ class MySQLHandler():
         #
         # return row_list
 
-
     @classmethod
     def delete(cls, table_name, key_val_dict):
         str_conditions = cls.join_with_AND(key_val_dict)
@@ -109,7 +108,7 @@ class MySQLHandler():
     def update(cls, table_name, key_val_dict, dict_update_column_val):
         str_column_val = ", ".join([
             f"{column}='{dict_update_column_val[column]}'"
-                for column in dict_update_column_val
+            for column in dict_update_column_val
         ])
 
         str_conditions = cls.join_with_AND(key_val_dict)
@@ -133,20 +132,20 @@ class MySQLHandler():
             for column in table_column_dict[table]:
                 cmd += f"{column} LIKE '%{keyword}%' OR "
 
-            cmd = cmd[:-4] + ";"        ## remove last " OR "
+            cmd = cmd[:-4] + ";"  # remove last " OR "
             print("\n\t", cmd, "\n")
             cursor.execute(cmd)
             row_list = cursor.fetchall()
             row_dict_list = cls.change_into_dict(table, row_list)
 
-            ## if xx_contents, check not to append duplicate post
+            # if xx_contents, check not to append duplicate post
             if table[-8:] == "contents":
                 for contents_row_dict in row_dict_list:
                     if not contents_row_dict["post_id"] in id_list:
                         id_list.append(contents_row_dict["post_id"])
 
                         row_dict = cls.fetch(
-                            table[:-9] + "s",   ## get parent table
+                            table[:-9] + "s",  # get parent table
                             {"id": contents_row_dict["post_id"]},
                             allow_empty=False
                         )
@@ -156,3 +155,10 @@ class MySQLHandler():
                 id_list = [row_dict["id"] for row_dict in row_dict_list]
 
         return result_list
+
+    @classmethod
+    def get_all_records(cls, db_name):
+        cmd = f" SELECT * FROM {db_name};"
+        print("\n\t", cmd, "\n")
+        cursor.execute(cmd)
+        return cursor.fetchall()
