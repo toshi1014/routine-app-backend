@@ -731,19 +731,29 @@ url\t: {config.FRONTEND_URL}/routine_contents/{post_id}
     return {}
 
 
-# TODO: secure
 @basic_response(login_required=True)
 def download_db(request, is_authenticated_dict):
-    table_name_list = request.data["tableNameList"]
     res = {}
-    for table_name in table_name_list:
-        res.update({
-            table_name: {
-                "columns": config.db_column_list[table_name],
-                "records": MySQLHandler.get_all_records(table_name),
-            }
-        })
+
+    if is_admin_user_base(is_authenticated_dict):
+        table_name_list = request.data["tableNameList"]
+        for table_name in table_name_list:
+            res.update({
+                table_name: {
+                    "columns": config.db_column_list[table_name],
+                    "records": MySQLHandler.get_all_records(table_name),
+                }
+            })
     return res
+
+
+def is_admin_user_base(is_authenticated_dict):
+    return bool(config.EMAIL_ADMIN == is_authenticated_dict["email"])
+
+
+@basic_response(login_required=True)
+def is_admin_user(request, is_authenticated_dict):
+    return {"boolAdminUser": is_admin_user_base(is_authenticated_dict)}
 
 
 # DEBUG: below

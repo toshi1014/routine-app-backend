@@ -23,6 +23,7 @@ urlpatterns = [
     path("send_email/", views.send_email),
     path("report/", views.report),
     path("download_db/", views.download_db),
+    path("is_admin_user/", views.is_admin_user),
 
     # DEBUG: below
     path("delete_users/", views.delete_users),
