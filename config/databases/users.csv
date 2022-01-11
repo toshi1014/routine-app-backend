@@ -5,4 +5,7 @@ status_message, VARCHAR(140) DEFAULT "Howdy"
 hashtag_list, VARCHAR(140) DEFAULT "ShareYourRoutine"
 followers_num, INT UNSIGNED DEFAULT 0
 following_num, INT UNSIGNED DEFAULT 0
+Facebook, VARCHAR(32)
+Twitter, VARCHAR(32)
+Instagram, VARCHAR(32)
 ===EOF=======================

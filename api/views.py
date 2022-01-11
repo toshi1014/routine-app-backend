@@ -176,6 +176,9 @@ def get_mypage_header(user_row):
         "hashtagList": user_row["hashtag_list"].split(","),
         "followingNum": user_row["following_num"],
         "followersNum": user_row["followers_num"],
+        "Facebook": user_row["Facebook"],
+        "Twitter": user_row["Twitter"],
+        "Instagram": user_row["Instagram"],
     }
     return header
 
