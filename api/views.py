@@ -325,6 +325,7 @@ def post_or_draft(request, is_authenticated_dict):
         lastrowid = MySQLHandler.insert(
             title_table, contents_title
         )
+        post_id = lastrowid
 
         for idx, routine_element in enumerate(routine_element_list):
             MySQLHandler.insert(
@@ -346,7 +347,7 @@ def post_or_draft(request, is_authenticated_dict):
             MySQLHandler.delete("posts", {"id": post_id})
             MySQLHandler.delete("post_contents", {"post_id": post_id})
 
-    return {}
+    return {"postId": post_id}
 
 
 @basic_response(login_required=False)
@@ -375,7 +376,6 @@ def get_contents(request, post_id):
             "title": post_contents_row["title"],
             "subtitle": post_contents_row["subtitle"],
             "desc": post_contents_row["description"],
-            "imagePath": "logo192.png",     # TEMP: image path
         })
 
     return {
@@ -416,7 +416,6 @@ def get_draft(request, is_authenticated_dict):
             "title": draft_contents_row["title"],
             "subtitle": draft_contents_row["subtitle"],
             "desc": draft_contents_row["description"],
-            "imagePath": "logo192.png",     # TEMP: image path
         })
 
     return {
