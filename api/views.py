@@ -571,8 +571,12 @@ def get_following_or_followers(request, user_id, following_or_follwers):
         {
             "username": MySQLHandler.fetch("users", {"id": row[target_column]})["username"],
             "userId": row[target_column],
-        }
-        for row in MySQLHandler.fetchall(
+            "badge": get_badge(
+                MySQLHandler.fetch(
+                    "users", {"id": row[target_column]}
+                )["followers_num"]
+            ),
+        } for row in MySQLHandler.fetchall(
             "follows",
             {search_column: user_id},
         )
